@@ -228,6 +228,14 @@ public class AncestorQol : BaseSettingsPlugin<NecropolisQolSettings>
 
         monsterVal += averagePackDensity;
 
+        // Each monster has tiers. Now that we've calculated its base total... lets do some multiplication.
+        MonsterConfig config = Settings.MonsterConfigList.FirstOrDefault(x => model.Name.Contains(x.Name));
+        int monsterTier = 3;
+        if (config == null)
+            monsterTier = config.Tier;
+
+        model.CalculatedValue *= monsterTier;
+
         // Before we return... lets throw it on the model for future logic
         model.CalculatedValue = monsterVal;
 
