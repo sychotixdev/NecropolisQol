@@ -17,5 +17,6 @@ namespace NecropolisQol.Models
         public Element Element { get; set; }
         public int Order { get; set; }
         public float CalculatedValue { get; set; }
+        public float CalculatedDanger { get; set; }
     }
 }

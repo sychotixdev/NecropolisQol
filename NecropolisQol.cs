@@ -34,9 +34,6 @@ public class AncestorQol : BaseSettingsPlugin<NecropolisQolSettings>
     private static readonly int[] ModDescriptionIndicies = [0];
     private static readonly int[] ModTierIndicies = [0];
 
-    private List<ModModel> CachedMods { get; set; }
-    private List<MonsterModel> CachedMonsterModels { get; set; }
-
     public override void Render()
     {
         RenderModStuff();
@@ -56,24 +53,45 @@ public class AncestorQol : BaseSettingsPlugin<NecropolisQolSettings>
             var mods = GetModList(necropolisTransitionWindow);
             var monsters = GetMonsterList(necropolisTransitionWindow);
 
-            mods = mods.OrderByDescending(x => CalculateModValue(x)).ToList();
             monsters = monsters.OrderByDescending(x => CalculateMonsterValue(x)).ToList();
+
+            // Loop through each mod so that we pre-calculate mod values.
+            // No need to order this list as its reordered for each monster based on danger
+            mods.ForEach(x => CalculateModValue(x));
+
 
             ModModel existingModel = null;
             ModModel desiredModel = null;
 
-            for (int i = 0; i < mods.Count; i++)
+            List<int> alreadyHandledMods = new List<int>();
+
+            for (int i = 0; i < monsters.Count; i++)
             {
                 MonsterModel monster = monsters.ElementAt(i);
-                ModModel mod = mods.ElementAt(i);
+
+                // TODO: At this point, we could hyper-optimize and ensure that we choos the end "board" with the highest total net value.
+                // I think this is too complicated for a first draft though and potentially too resource intensive. Lets take the more instant
+                // easy calculation of only optimizing the top value monsters
+
+                // Reorder the mod list for us, ignoring all mods that are already claimed
+                var ourBestMods = mods.Where(x => !alreadyHandledMods.Contains(x.Order))
+                    .OrderByDescending(mod => mod.CalculatedValue - CalculateModDanger(mod, monster))
+                    .ToList();
+
+                ModModel mod = ourBestMods.FirstOrDefault();
 
                 // First... is this mod already in this slot? If so... skip it
                 if (monster.Order == mod.Order)
-                    continue;
-                // Next... to prevent ever having a pointless switch... lets look at the mod value already in this slot
-                existingModel = mods.FirstOrDefault(x => x.Order == monster.Order);
-                if (existingModel != null && mod.CalculatedValue == existingModel.CalculatedValue)
                 {
+                    alreadyHandledMods.Add(mod.Order);
+                    continue;
+                }
+
+                // Next... to prevent ever having a pointless switch... lets look at the mod value already in this slot
+                existingModel = ourBestMods.FirstOrDefault(x => x.Order == monster.Order);
+                if (existingModel != null && (mod.CalculatedValue - mod.CalculatedDanger) == (existingModel.CalculatedValue - mod.CalculatedDanger))
+                {
+                    alreadyHandledMods.Add(existingModel.Order);
                     continue;
                 }
 
@@ -89,17 +107,6 @@ public class AncestorQol : BaseSettingsPlugin<NecropolisQolSettings>
                 // TODO: Make an arrow and not just a line?
                 // TODO: Probably position better, maybe 25% through frame?
                 Graphics.DrawLine(existingModel.Element.PositionNum, desiredModel.Element.PositionNum, 5.0f, Color.Green);
-            }
-
-            // We want to draw attention to anything particularly dangerous
-            foreach (var mod in mods)
-            {
-                if (mod.CalculatedValue <= Settings.DangerousHighlight.Value)
-                {
-                    // TODO: Color configuration?
-                    // TODO: Is this the right rectangle to use?
-                    Graphics.DrawBox(mod.Element.GetClientRectCache, Color.Red);
-                }
             }
         }
     }
@@ -228,14 +235,6 @@ public class AncestorQol : BaseSettingsPlugin<NecropolisQolSettings>
 
         monsterVal += averagePackDensity;
 
-        // Each monster has tiers. Now that we've calculated its base total... lets do some multiplication.
-        MonsterConfig config = Settings.MonsterConfigList.FirstOrDefault(x => model.Name.Contains(x.Name));
-        int monsterTier = 3;
-        if (config == null)
-            monsterTier = config.Tier;
-
-        model.CalculatedValue *= monsterTier;
-
         // Before we return... lets throw it on the model for future logic
         model.CalculatedValue = monsterVal;
 
@@ -250,36 +249,39 @@ public class AncestorQol : BaseSettingsPlugin<NecropolisQolSettings>
 
         float modVal = 0;
 
-
-        if (Settings.AvoidList.Any(x => lowerCaseModelDescription.Contains(x)))
-        {
-            modVal = -10;
-        }
-        // When minimizing danger... still treat priority items with priority
-        else if (Settings.MinimizeDanger.Value && Settings.PriorityList.Any(x => lowerCaseModelDescription.Contains(x)))
-        {
-            modVal = Settings.PriorityWeight.Value;
-        }
-        // If we are minimizing danger... everything else is dangerous
-        else if (Settings.MinimizeDanger.Value || Settings.DangerousList.Any(x => lowerCaseModelDescription.Contains(x)))
-        {
-            modVal = -1;
-        }
-        else if (Settings.PriorityList.Any(x => lowerCaseModelDescription.Contains(x)))
-        {
-            modVal = Settings.PriorityWeight.Value;
-        }
-        else
-        {
-            modVal = 1;
-        }
-
         // Mod is made more valuable (or less valuable if negative) by tier
-        modVal *= model.Tier;
+        modVal +=  10 * model.Tier;
+
+        // If this is a devotion mod, add our base devition bonus
+        if (Settings.DevotionMods.Any(x => model.Description == x.Key))
+            modVal += Settings.DevotedBonusValue.Value;
 
         // Before we return... lets throw it on the model for future logic
         model.CalculatedValue = modVal;
 
         return modVal;
+    }
+
+    private float CalculateModDanger(ModModel mod, MonsterModel monster)
+    {
+        float danger = 0;
+
+        // First, mods are more dangerous the higher the tier
+        danger += mod.Tier * 10;
+
+        // Now, lets make any adjustments to the danger based on the mod's danger level (and overrides for this monster)
+        if (Settings.ModDangers.TryGetValue(mod.Description, out ModConfiguration modConfiguration))
+        {
+            danger += 10 * modConfiguration.GetDanger(monster.Name);
+        }
+
+        // Multiply the final danger value by our overall danger weight.
+        // This is there to adjust how juiced we want the map. 0 = no care for danger, 1 = REALLY care about danger.
+        danger *= Settings.DangerWeight;
+
+        // This is bad design we are placing a monster specific danger on the mod.... but whatever.
+        mod.CalculatedDanger = danger;
+
+        return danger;
     }
 }
