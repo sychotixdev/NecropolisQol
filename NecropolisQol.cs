@@ -10,9 +10,9 @@ using NecropolisQol.Models;
 using SharpDX;
 using Vector2 = System.Numerics.Vector2;
 
-namespace AncestorQol;
+namespace NecropolisQoL;
 
-public class AncestorQol : BaseSettingsPlugin<NecropolisQolSettings>
+public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
 {
     private static readonly Regex CleanDescriptionRegex = new Regex("<[^>]*>{(?<value>[^}]*)}", RegexOptions.Compiled);
     private static readonly Regex LineEndingRegex = new Regex("(\r?\n){3,}", RegexOptions.Compiled);
@@ -33,6 +33,14 @@ public class AncestorQol : BaseSettingsPlugin<NecropolisQolSettings>
 
     private static readonly int[] ModDescriptionIndicies = [0];
     private static readonly int[] ModTierIndicies = [0];
+
+    public static NecropolisQol Main;
+
+    public override bool Initialise()
+    {
+        Main = this;
+        return base.Initialise();
+    }
 
     public override void Render()
     {
@@ -278,7 +286,7 @@ public class AncestorQol : BaseSettingsPlugin<NecropolisQolSettings>
         modVal +=  10 * model.Tier;
 
         // If this is a devotion mod, add our base devition bonus
-        if (Settings.DevotionMods.Any(x => model.Description == x.Key))
+        if (Settings.DevotionMods.Any(x => model.Description == x.Id))
             modVal += Settings.DevotedBonusValue.Value;
 
         // Before we return... lets throw it on the model for future logic
