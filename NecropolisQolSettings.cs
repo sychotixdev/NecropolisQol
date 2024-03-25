@@ -1025,6 +1025,7 @@ public class NecropolisQolSettings : ISettings
     public class Swappable
     {
         public Dictionary<string, Dictionary<string, float>> ModMobWeightings { get; set; } = [];
+        public bool HideZeroSetWeights;
     }
 
 
@@ -1171,6 +1172,10 @@ public class NecropolisQolSettings : ISettings
                     }
                 }
 
+                ImGui.SameLine();
+
+                ImGui.Checkbox("Hide 0 Set Weightings", ref HotSwap.HideZeroSetWeights);
+
                 ImGui.InputTextWithHint("Modifier Filter##ModFilter", "Filter Modifiers here", ref modFilter, 100);
                 ImGui.InputTextWithHint("Monster Filter##MobFilter", "Filter Monsters here", ref mobFilter, 100);
 
@@ -1232,6 +1237,11 @@ public class NecropolisQolSettings : ISettings
             var mobName = AllMonsters.FirstOrDefault(m => m.Id == mobId).Name;
 
             if (mobName == null || !mobName.Contains(mobFilter, StringComparison.InvariantCultureIgnoreCase))
+            {
+                continue;
+            }
+
+            if (HotSwap.HideZeroSetWeights && mobWeightings[mobId] == 0f)
             {
                 continue;
             }
@@ -1329,7 +1339,10 @@ public class NecropolisQolSettings : ISettings
             var jsonString = JsonConvert.SerializeObject(input, Formatting.Indented);
             File.WriteAllText(fullPath, jsonString);
         }
-        catch (Exception e) { }
+        catch
+        {
+            // ignored
+        }
     }
 
     public void LoadFile(string fileName)
@@ -1342,7 +1355,10 @@ public class NecropolisQolSettings : ISettings
             HotSwap
                 = JsonConvert.DeserializeObject<Swappable>(fileContent);
         }
-        catch (Exception e) { }
+        catch
+        {
+            // ignored
+        }
     }
 
     public List<string> GetFiles()
@@ -1354,7 +1370,10 @@ public class NecropolisQolSettings : ISettings
             var dir = new DirectoryInfo(NecropolisQol.Main.ConfigDirectory);
             fileList = dir.GetFiles().Select(file => Path.GetFileNameWithoutExtension(file.Name)).ToList();
         }
-        catch (Exception e) { }
+        catch
+        {
+            // ignored
+        }
 
         return fileList;
     }
