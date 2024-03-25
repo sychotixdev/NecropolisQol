@@ -57,56 +57,81 @@ public class AncestorQol : BaseSettingsPlugin<NecropolisQolSettings>
 
             // Loop through each mod so that we pre-calculate mod values.
             // No need to order this list as its reordered for each monster based on danger
+            foreach(var mod in mods)
+            {
+                CalculateModValue(mod);
+                var monster = monsters.FirstOrDefault(x => x.Order == mod.Order);
+                CalculateModDanger(mod, monster);
+            }
             mods.ForEach(x => CalculateModValue(x));
 
-
-            ModModel existingModel = null;
-            ModModel desiredModel = null;
-
-            List<int> alreadyHandledMods = new List<int>();
-
-            for (int i = 0; i < monsters.Count; i++)
+            if (Settings.MonsterValue.Value)
             {
-                MonsterModel monster = monsters.ElementAt(i);
-
-                // TODO: At this point, we could hyper-optimize and ensure that we choos the end "board" with the highest total net value.
-                // I think this is too complicated for a first draft though and potentially too resource intensive. Lets take the more instant
-                // easy calculation of only optimizing the top value monsters
-
-                // Reorder the mod list for us, ignoring all mods that are already claimed
-                var ourBestMods = mods.Where(x => !alreadyHandledMods.Contains(x.Order))
-                    .OrderByDescending(mod => mod.CalculatedValue - CalculateModDanger(mod, monster))
-                    .ToList();
-
-                ModModel mod = ourBestMods.FirstOrDefault();
-
-                // First... is this mod already in this slot? If so... skip it
-                if (monster.Order == mod.Order)
-                {
-                    alreadyHandledMods.Add(mod.Order);
-                    continue;
-                }
-
-                // Next... to prevent ever having a pointless switch... lets look at the mod value already in this slot
-                existingModel = ourBestMods.FirstOrDefault(x => x.Order == monster.Order);
-                if (existingModel != null && (mod.CalculatedValue - mod.CalculatedDanger) == (existingModel.CalculatedValue - mod.CalculatedDanger))
-                {
-                    alreadyHandledMods.Add(existingModel.Order);
-                    continue;
-                }
-
-                // If we've made it this far, we've found something that needs to switch. Render that.
-                desiredModel = mod;
-                break;
+                // TODO: Add rendering of monster value on UI element
             }
 
-            // If we have a desired model, we need to render a switch
-            if (desiredModel != null)
+            if (Settings.ModValue.Value)
             {
-                // TODO: Add configurable color and thickness
-                // TODO: Make an arrow and not just a line?
-                // TODO: Probably position better, maybe 25% through frame?
-                Graphics.DrawLine(existingModel.Element.PositionNum, desiredModel.Element.PositionNum, 5.0f, Color.Green);
+                // TODO: Add rendering of mod value current monster on UI element
+            }
+
+            if (Settings.ModDanger.Value)
+            {
+                // TODO: Add rendering of mod danger for current monster on UI element
+            }
+
+
+            if (Settings.GiveSuggestions.Value)
+            {
+                ModModel existingModel = null;
+                ModModel desiredModel = null;
+
+                List<int> alreadyHandledMods = new List<int>();
+
+                for (int i = 0; i < monsters.Count; i++)
+                {
+                    MonsterModel monster = monsters.ElementAt(i);
+
+                    // TODO: At this point, we could hyper-optimize and ensure that we choos the end "board" with the highest total net value.
+                    // I think this is too complicated for a first draft though and potentially too resource intensive. Lets take the more instant
+                    // easy calculation of only optimizing the top value monsters
+                    // NOTE: If you make this even remotely more complicated... we probably need to take this off the render thread
+
+                    // Reorder the mod list for us, ignoring all mods that are already claimed
+                    var ourBestMods = mods.Where(x => !alreadyHandledMods.Contains(x.Order))
+                        .OrderByDescending(mod => mod.CalculatedValue - CalculateModDanger(mod, monster))
+                        .ToList();
+
+                    ModModel mod = ourBestMods.FirstOrDefault();
+
+                    // First... is this mod already in this slot? If so... skip it
+                    if (monster.Order == mod.Order)
+                    {
+                        alreadyHandledMods.Add(mod.Order);
+                        continue;
+                    }
+
+                    // Next... to prevent ever having a pointless switch... lets look at the mod value already in this slot
+                    existingModel = ourBestMods.FirstOrDefault(x => x.Order == monster.Order);
+                    if (existingModel != null && (mod.CalculatedValue - mod.CalculatedDanger) == (existingModel.CalculatedValue - mod.CalculatedDanger))
+                    {
+                        alreadyHandledMods.Add(existingModel.Order);
+                        continue;
+                    }
+
+                    // If we've made it this far, we've found something that needs to switch. Render that.
+                    desiredModel = mod;
+                    break;
+                }
+
+                // If we have a desired model, we need to render a switch
+                if (desiredModel != null)
+                {
+                    // TODO: Add configurable color and thickness
+                    // TODO: Make an arrow and not just a line?
+                    // TODO: Probably position better, maybe 25% through frame?
+                    Graphics.DrawLine(existingModel.Element.PositionNum, desiredModel.Element.PositionNum, 5.0f, Color.Green);
+                }
             }
         }
     }
@@ -272,14 +297,13 @@ public class AncestorQol : BaseSettingsPlugin<NecropolisQolSettings>
         // Now, lets make any adjustments to the danger based on the mod's danger level (and overrides for this monster)
         if (Settings.ModDangers.TryGetValue(mod.Description, out ModConfiguration modConfiguration))
         {
-            danger += 10 * modConfiguration.GetDanger(monster.Name);
+            danger += 10 * modConfiguration.GetDanger(monster?.Name);
         }
 
         // Multiply the final danger value by our overall danger weight.
         // This is there to adjust how juiced we want the map. 0 = no care for danger, 1 = REALLY care about danger.
         danger *= Settings.DangerWeight;
 
-        // This is bad design we are placing a monster specific danger on the mod.... but whatever.
         mod.CalculatedDanger = danger;
 
         return danger;

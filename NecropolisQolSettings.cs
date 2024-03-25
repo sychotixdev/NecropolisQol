@@ -1009,5 +1009,10 @@ public class NecropolisQolSettings : ISettings
     public RangeNode<float> DangerWeight { get; set; } = new RangeNode<float>(0.5f, 0, 1);
 
     public Dictionary<String, ModConfiguration> ModDangers = new Dictionary<String, ModConfiguration>();
+    public ToggleNode MonsterValue { get; set; } = new ToggleNode(true);
+    public ToggleNode ModValue { get; set; } = new ToggleNode(true);
+    public ToggleNode ModDanger { get; set; } = new ToggleNode(true);
+
+    public ToggleNode GiveSuggestions { get; set; } = new ToggleNode(true);
 
 }
