@@ -993,7 +993,8 @@ public class NecropolisQolSettings : ISettings
             {"breach-physical1", "Uul-Netol's Demons"},
             {"breach-chaos1", "Chayula's Demons"},
             {"breach-generic2", "It That Watches"},
-            {"breach-generic3", "It that Whispers"}
+            {"breach-generic3", "It that Whispers"},
+            {"InvasionBoss-Spiker", "Spined Goliaths" }
 
     };
 
