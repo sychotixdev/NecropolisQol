@@ -77,9 +77,13 @@ public class NecropolisQolSettings : ISettings
         ("NecropolisEnhancePackSpeedOnDeath", "Enhance Pack Speed On Death")
     };
 
+    public static readonly string DEFAULT_MONSTER = "Default";
+
     [JsonIgnore]
     public List<(string Id, string Name)> AllMonsters = new List<(string, string)>
     {
+        (DEFAULT_MONSTER, DEFAULT_MONSTER), // This is a dummy "Default" monster 
+
         ("Zombie", "Zombies"),
         ("Sandspitter3", "Crustacean Snipers"),
         ("Sandspitter2", "Gravel Eaters"),
@@ -1006,7 +1010,6 @@ public class NecropolisQolSettings : ISettings
 
     public RangeNode<float> DangerWeight { get; set; } = new RangeNode<float>(0.5f, 0, 1);
 
-    public Dictionary<String, ModConfiguration> ModDangers = new Dictionary<String, ModConfiguration>();|
     public ToggleNode MonsterValue { get; set; } = new ToggleNode(true);
     public ToggleNode ModValue { get; set; } = new ToggleNode(true);
     public ToggleNode ModDanger { get; set; } = new ToggleNode(true);
@@ -1299,7 +1302,7 @@ public class NecropolisQolSettings : ISettings
                 continue;
             }
 
-            if (HotSwap.HideZeroSetWeights && mobWeightings[mobId] == 0f)
+            if (!DEFAULT_MONSTER.Equals(mobId) && HotSwap.HideZeroSetWeights && mobWeightings[mobId] == 0f)
             {
                 continue;
             }

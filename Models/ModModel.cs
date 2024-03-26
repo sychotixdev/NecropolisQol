@@ -12,7 +12,7 @@ namespace NecropolisQol.Models
         public bool IsEmpty { get; set; }
 
         public bool IsDevoted { get; set; }
-        public String Description { get; set; }
+        public String Name { get; set; }
         public int Tier { get; set; }
         public Element Element { get; set; }
         public int Order { get; set; }

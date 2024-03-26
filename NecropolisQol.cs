@@ -205,7 +205,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
 
         ModModel model = new ModModel();
 
-        model.Description = element.ModElement.Text;
+        model.Name = element.ModElement.Text;
 
         // I don't think we can make much of a guess on the tier format
         Element tierElement = element.GetChildFromIndices(ModTierIndicies);
@@ -250,9 +250,9 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
 
     private float CalculateModValue(ModModel model)
     {
-        if (model == null || model.Description == null) return 0;
+        if (model == null || model.Name == null) return 0;
 
-        string lowerCaseModelDescription = model.Description.ToLower();
+        string lowerCaseModelDescription = model.Name.ToLower();
 
         float modVal = 0;
 
@@ -260,14 +260,14 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         modVal +=  10 * model.Tier;
 
         // If this is a devotion mod, add our base devition bonus
-        if (Settings.DevotionMods.Any(x => model.Description == x.Id))
+        if (Settings.DevotionMods.Any(x => model.Name == x.Id))
             modVal += Settings.DevotedBonusValue.Value;
 
-        // Now, lets make any adjustments to the danger based on the mod's danger level (and overrides for this monster)
-        if (Settings.TryGetValue(model.Description, out ModConfiguration modConfiguration))
+        // TODO: We need to add devotion weights here too (not danger as stub implies)
+        /*if (Settings.TryGetValue(model.Description, out ModConfiguration modConfiguration))
         {
             modVal += 10 * modConfiguration.GetDanger(monster?.Name);
-        }
+        }*/
 
         // Before we return... lets throw it on the model for future logic
         model.CalculatedValue = modVal;
@@ -283,9 +283,13 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         danger += mod.Tier * 10;
 
         // Now, lets make any adjustments to the danger based on the mod's danger level (and overrides for this monster)
-        if (Settings.ModDangers.TryGetValue(mod.Description, out ModConfiguration modConfiguration))
+        if (Settings.HotSwap.ModMobWeightings.TryGetValue(mod.Name, out Dictionary<string, float> overrides))
         {
-            danger += 10 * modConfiguration.GetDanger(monster?.Name);
+            float overrideValue = 0;
+            if (overrides.TryGetValue(monster.Name, out overrideValue) || overrides.TryGetValue(NecropolisQolSettings.DEFAULT_MONSTER, out overrideValue))
+            {
+                danger += overrideValue * 10;
+            }
         }
 
         // Multiply the final danger value by our overall danger weight.
