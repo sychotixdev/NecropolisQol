@@ -1,4 +1,5 @@
 ﻿using ExileCore.PoEMemory;
+using ExileCore.PoEMemory.Elements.Necropolis;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +15,7 @@ namespace NecropolisQol.Models
         public bool IsDevoted { get; set; }
         public String Name { get; set; }
         public int Tier { get; set; }
-        public Element Element { get; set; }
+        public NecropolisMonsterPanelMonsterAssociation MonsterAssociation { get; set; }
         public int Order { get; set; }
         public float CalculatedValue { get; set; }
         public float CalculatedDanger { get; set; }

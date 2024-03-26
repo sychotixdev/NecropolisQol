@@ -1,4 +1,5 @@
 ﻿using ExileCore.PoEMemory;
+using ExileCore.PoEMemory.Elements.Necropolis;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,7 +23,7 @@ namespace NecropolisQol.Models
         public int PackSizeHigh { get; set; } = 1;
         public MonsterDensity Density { get; set; } = MonsterDensity.None;
 
-        public Element Element { get; set; }
+        public NecropolisMonsterPanelMonsterAssociation MonsterAssociation { get; set; }
         public int Order { get; set; }
         public float CalculatedValue { get; set; }
 

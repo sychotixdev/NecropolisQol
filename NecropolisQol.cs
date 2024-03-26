@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using ExileCore;
 using ExileCore.PoEMemory;
 using ExileCore.PoEMemory.Components;
@@ -16,26 +17,6 @@ namespace NecropolisQoL;
 
 public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
 {
-    private static readonly Regex CleanDescriptionRegex = new Regex("<[^>]*>{(?<value>[^}]*)}", RegexOptions.Compiled);
-    private static readonly Regex LineEndingRegex = new Regex("(\r?\n){3,}", RegexOptions.Compiled);
-    private static readonly Regex SentenceSplitRegex = new Regex(@"\.( +)", RegexOptions.Compiled);
-
-    /// These may be entirely replaced once the element is reversed
-    private static readonly int[] MonsterChildrenIndicies = [0];
-
-    // This corresponds to the hover window when viewing monster details
-    private static readonly int[] MonsterDetailsWindowIndicies = [0];
-
-    // Indicies for the monster's name
-    private static readonly int[] MonsterDetailsWindowNameIndicies = [0];
-    // Indicies for the description containing density and pack size
-    private static readonly int[] MonsterDetailsWindowDescriptionIndicies = [0];
-
-    private static readonly int[] ModChildrenIndicies = [0];
-
-    private static readonly int[] ModDescriptionIndicies = [0];
-    private static readonly int[] ModTierIndicies = [0];
-
     public static NecropolisQol Main;
 
     public override bool Initialise()
@@ -77,17 +58,26 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
 
             if (Settings.MonsterValue.Value)
             {
-                // TODO: Add rendering of monster value on UI element
+                foreach(var monster in monsters)
+                {
+                    Graphics.DrawText(monster.CalculatedValue.ToString(), monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.BottomLeft, Color.Green, ExileCore.Shared.Enums.FontAlign.Left);
+                }
             }
 
             if (Settings.ModValue.Value)
             {
-                // TODO: Add rendering of mod value current monster on UI element
+                foreach (var mod in mods)
+                {
+                    Graphics.DrawText(mod.CalculatedValue.ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.BottomLeft, Color.Green, ExileCore.Shared.Enums.FontAlign.Left);
+                }
             }
 
             if (Settings.ModDanger.Value)
             {
-                // TODO: Add rendering of mod danger for current monster on UI element
+                foreach (var mod in mods)
+                {
+                    Graphics.DrawText(mod.CalculatedDanger.ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.BottomRight, Color.Red, ExileCore.Shared.Enums.FontAlign.Left);
+                }
             }
 
 
@@ -140,7 +130,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                     // TODO: Add configurable color and thickness
                     // TODO: Make an arrow and not just a line?
                     // TODO: Probably position better, maybe 25% through frame?
-                    Graphics.DrawLine(existingModel.Element.PositionNum, desiredModel.Element.PositionNum, 5.0f, Color.Green);
+                    Graphics.DrawLine(existingModel.MonsterAssociation.ModElement.PositionNum, desiredModel.MonsterAssociation.ModElement.PositionNum, 5.0f, Color.Green);
                 }
             }
         }
@@ -185,10 +175,10 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         if (element == null) return null;
 
         MonsterModel model = new MonsterModel();
+        model.MonsterAssociation = element;
 
         // Going to have to parse the description maybe?
         model.Name = element.Pack.Name;
-        String description = element.GetChildFromIndices(MonsterDetailsWindowDescriptionIndicies)?.Text ?? "";
 
         model.PackSizeLow = element.MinMonstersPerPack;
         model.PackSizeHigh = element.MaxMonstersPerPack;
@@ -204,11 +194,11 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         if (element == null) return null;
 
         ModModel model = new ModModel();
+        model.MonsterAssociation = element;
 
         model.Name = element.ModElement.Text;
 
         // I don't think we can make much of a guess on the tier format
-        Element tierElement = element.GetChildFromIndices(ModTierIndicies);
         model.Tier = 1;
 
         // TODO: Need to mark things as empty mod slots as well.
@@ -263,11 +253,18 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         if (Settings.DevotionMods.Any(x => model.Name == x.Id))
             modVal += Settings.DevotedBonusValue.Value;
 
-        // TODO: We need to add devotion weights here too (not danger as stub implies)
-        /*if (Settings.TryGetValue(model.Description, out ModConfiguration modConfiguration))
+        // Now, lets make any adjustments to the danger based on the mod's danger level (and overrides for this monster)
+        if (Settings.HotSwap.DevotionModMobWeightings.TryGetValue(model.Name, out Dictionary<string, float> overrides))
         {
-            modVal += 10 * modConfiguration.GetDanger(monster?.Name);
-        }*/
+            float overrideValue = 0;
+            // TODO: Technically there are overrides per monster that we are just throwing away
+            // Value is not based on monster. We should probably fix the UI, not this code?
+            // Unless we truely want to modify value per monster... which would complicate things
+            if (overrides.TryGetValue(NecropolisQolSettings.DEFAULT_MONSTER, out overrideValue))
+            {
+                modVal += overrideValue * 10;
+            }
+        }
 
         // Before we return... lets throw it on the model for future logic
         model.CalculatedValue = modVal;
