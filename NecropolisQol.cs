@@ -5,7 +5,9 @@ using System.Text.RegularExpressions;
 using ExileCore;
 using ExileCore.PoEMemory;
 using ExileCore.PoEMemory.Components;
+using ExileCore.PoEMemory.Elements.Necropolis;
 using ExileCore.Shared.Helpers;
+using GameOffsets.Components;
 using NecropolisQol.Models;
 using SharpDX;
 using Vector2 = System.Numerics.Vector2;
@@ -49,17 +51,17 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
 
     public void RenderModStuff()
     {
-        Element necropolisTransitionWindow = GetNecropolisTransitionWindow();
+        NecropolisMonsterPanel necropolisMonsterPanel = GameController.IngameState.IngameUi.NecropolisMonsterPanel;
 
 
-        if (necropolisTransitionWindow is
+        if (necropolisMonsterPanel is
             {
                 IsVisible: true
             })
         {
             // Pull the data for us to process
-            var mods = GetModList(necropolisTransitionWindow);
-            var monsters = GetMonsterList(necropolisTransitionWindow);
+            var mods = GetModList(necropolisMonsterPanel);
+            var monsters = GetMonsterList(necropolisMonsterPanel);
 
             monsters = monsters.OrderByDescending(x => CalculateMonsterValue(x)).ToList();
 
@@ -144,13 +146,13 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         }
     }
 
-    private List<ModModel> GetModList(Element necropolisTransitionWindow)
+    private List<ModModel> GetModList(NecropolisMonsterPanel necropolisTransitionWindow)
     {
         var modList = new List<ModModel>();
-        var modElementList = GetModElementList(necropolisTransitionWindow);
-        for (int i = 0; i < modElementList.Count; i++)
+        var associations = necropolisTransitionWindow.Associations;
+        for (int i = 0; i < associations.Count; i++)
         {
-            ModModel model = ConvertElementToMod(modElementList.ElementAtOrDefault(i));
+            ModModel model = ConvertElementToMod(associations.ElementAtOrDefault(i));
             if (model != null)
             {
                 model.Order = i;
@@ -161,13 +163,13 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         return modList;
     }
 
-    private List<MonsterModel> GetMonsterList(Element necropolisTransitionWindow)
+    private List<MonsterModel> GetMonsterList(NecropolisMonsterPanel necropolisTransitionWindow)
     {
         var monsterList = new List<MonsterModel>();
-        var monsterElementList = GetMonsterElementList(necropolisTransitionWindow);
-        for (int i = 0; i < monsterElementList.Count; i++)
+        var associations = necropolisTransitionWindow.Associations;
+        for (int i = 0; i < associations.Count; i++)
         {
-            MonsterModel model = ConvertElementToMonster(monsterElementList.ElementAtOrDefault(i));
+            MonsterModel model = ConvertElementToMonster(associations.ElementAtOrDefault(i));
             if (model != null)
             {
                 model.Order = i;
@@ -178,67 +180,39 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         return monsterList;
     }
 
-    private Element GetNecropolisTransitionWindow()
-    {
-        return null;
-    }
-
-    private IList<Element> GetMonsterElementList(Element necropolisTransitionWindow)
-    {
-        List<Element> result = new List<Element>();
-        if (necropolisTransitionWindow == null) return new List<Element>();
-
-        return necropolisTransitionWindow.GetChildFromIndices(MonsterChildrenIndicies).Children;
-    }
-
-    private IList<Element> GetModElementList(Element necropolisTransitionWindow)
-    {
-        List<Element> result = new List<Element>();
-        if (necropolisTransitionWindow == null) return new List<Element>();
-
-        return necropolisTransitionWindow.GetChildFromIndices(ModChildrenIndicies).Children;
-    }
-
-    private MonsterModel ConvertElementToMonster(Element element)
+    private MonsterModel ConvertElementToMonster(NecropolisMonsterPanelMonsterAssociation element)
     {
         if (element == null) return null;
 
         MonsterModel model = new MonsterModel();
 
         // Going to have to parse the description maybe?
-        model.Name = element.GetChildFromIndices(MonsterDetailsWindowNameIndicies)?.Text ?? "";
+        model.Name = element.Pack.Name;
         String description = element.GetChildFromIndices(MonsterDetailsWindowDescriptionIndicies)?.Text ?? "";
 
-        var rangeMatch = Regex.Match(description, @"(\d+)-(\d+)");
-        if (rangeMatch.Success)
-        {
-            model.PackSizeLow = Int32.Parse(rangeMatch.Groups[1].Value);
-            model.PackSizeLow = Int32.Parse(rangeMatch.Groups[2].Value);
-        }
-
-        var densityMatch = Regex.Match(description, @"(normal|low|high)", RegexOptions.IgnoreCase);
-        if (densityMatch.Success)
-        {
-            model.Density = MonsterModel.MonsterDensityFromString(densityMatch.Value);
-        }
+        model.PackSizeLow = element.MinMonstersPerPack;
+        model.PackSizeHigh = element.MaxMonstersPerPack;
+        
+        model.Density = MonsterModel.MonsterDensityFromId(element.PackFrequency.Id);
 
         return model;
     }
 
 
-    private ModModel ConvertElementToMod(Element element)
+    private ModModel ConvertElementToMod(NecropolisMonsterPanelMonsterAssociation element)
     {
         if (element == null) return null;
 
         ModModel model = new ModModel();
 
-        model.Description = element.GetChildFromIndices(ModDescriptionIndicies).Text;
+        model.Description = element.ModElement.Text;
 
         // I don't think we can make much of a guess on the tier format
         Element tierElement = element.GetChildFromIndices(ModTierIndicies);
         model.Tier = 1;
 
         // TODO: Need to mark things as empty mod slots as well.
+        // This may only impact campaign... guessing maps will have 6/6 every time?
 
         return model;
     }
@@ -288,6 +262,12 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         // If this is a devotion mod, add our base devition bonus
         if (Settings.DevotionMods.Any(x => model.Description == x.Id))
             modVal += Settings.DevotedBonusValue.Value;
+
+        // Now, lets make any adjustments to the danger based on the mod's danger level (and overrides for this monster)
+        if (Settings.TryGetValue(model.Description, out ModConfiguration modConfiguration))
+        {
+            modVal += 10 * modConfiguration.GetDanger(monster?.Name);
+        }
 
         // Before we return... lets throw it on the model for future logic
         model.CalculatedValue = modVal;

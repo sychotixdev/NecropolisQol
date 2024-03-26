@@ -26,10 +26,12 @@ namespace NecropolisQol.Models
         public int Order { get; set; }
         public float CalculatedValue { get; set; }
 
-        public static MonsterDensity MonsterDensityFromString(string str)
+        public static MonsterDensity MonsterDensityFromId(string str)
         {
             if (str != null)
             {
+                str = str.ToLower();
+
                 if ("low".Equals(str, StringComparison.OrdinalIgnoreCase))
                     return MonsterDensity.Low;
                 if ("normal".Equals(str, StringComparison.OrdinalIgnoreCase))
