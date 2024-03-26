@@ -14,7 +14,7 @@ namespace NecropolisQol.Models
 
         public float GetDanger(string name=null)
         {
-            if (name == null || MonsterOverride.TryGetValue(name, out var danger))
+            if (name == null || !MonsterOverride.TryGetValue(name, out var danger))
                 return Danger;
 
             return danger;
