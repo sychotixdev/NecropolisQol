@@ -1137,7 +1137,7 @@ public class NecropolisQolSettings : ISettings
 
                 ImGui.Separator();
 
-                if (ImGui.Button("Open Crafting Template Folder"))
+                if (ImGui.Button("Open Template Folder"))
                 {
                     var configDir = NecropolisQol.Main.ConfigDirectory;
                     var directoryToOpen = Directory.Exists(configDir);
