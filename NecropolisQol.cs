@@ -76,7 +76,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
             {
                 foreach (var mod in mods)
                 {
-                    Graphics.DrawText(mod.CalculatedDanger.ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.BottomRight, Color.Red, ExileCore.Shared.Enums.FontAlign.Left);
+                    Graphics.DrawText(mod.CalculatedDanger.ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.BottomRight, Color.Red, ExileCore.Shared.Enums.FontAlign.Right);
                 }
             }
 
