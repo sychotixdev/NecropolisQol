@@ -10,12 +10,14 @@ using ImGuiNET;
 using NecropolisQol.Models;
 using Newtonsoft.Json;
 using SharpDX;
+using System.Collections.Immutable;
 
 namespace NecropolisQoL;
 
 public class NecropolisQolSettings : ISettings
 {
-    public IReadOnlyList<(string Id, string Name)> DevotionMods = new List<(string, string)>
+    [JsonIgnore]
+    public List<(string Id, string Name)> DevotionMods = new List<(string, string)>
     {
         ("NecropolisItemQuantity", "Item Quantity"),
         ("NecropolisItemRarity", "Item Rarity"),
@@ -26,7 +28,8 @@ public class NecropolisQolSettings : ISettings
         ("NecropolisStrongboxOnPackDeath", "Strongbox On Pack Death")
     };
 
-    public IReadOnlyList<(string Id, string Name)> NormalMods = new List<(string, string)>
+    [JsonIgnore]
+    public List<(string Id, string Name)> NormalMods = new List<(string, string)>
     {
         ("NecropolisMaximumLife", "Maximum Life"),
         ("NecropolisDamage", "Damage"),
@@ -77,7 +80,8 @@ public class NecropolisQolSettings : ISettings
         ("NecropolisEnhancePackSpeedOnDeath", "Enhance Pack Speed On Death")
     };
 
-    public IReadOnlyList<(string Id, string Name)> AllMonsters = new List<(string, string)>
+    [JsonIgnore]
+    public List<(string Id, string Name)> AllMonsters = new List<(string, string)>
     {
         ("Zombie", "Zombies"),
         ("Sandspitter3", "Crustacean Snipers"),
@@ -1017,7 +1021,20 @@ public class NecropolisQolSettings : ISettings
     // Load last saved for both on initialization as its less confusing
     public string ModMobWeightingLastSaved { get; set; } = "";
     public string ModMobWeightingLastSelected { get; set; } = "";
+
+    [JsonIgnore]
+    public string popupAllFilter = "";
+
+    [JsonIgnore]
+    public string popupCurrentFilter = "";
+
+    [JsonIgnore]
+    private const string EditModMobListPopup = "Modify Mob list";
+
+    [JsonIgnore]
     private const string ClearSettingPopup = "Clear Confirmation";
+
+    [JsonIgnore]
     private const string OverwritePopup = "Overwrite Confirmation";
 
     public Swappable HotSwap { get; set; } = new();
@@ -1038,7 +1055,13 @@ public class NecropolisQolSettings : ISettings
     public NecropolisQolSettings()
     {
         List<string> files;
-        InitializeModMobWeightings();
+
+        if (HotSwap.ModMobWeightings == null)
+        {
+            ResetModMobWeightings();
+        }
+
+        selectedModId ??= NormalMods.FirstOrDefault().Id;
 
         ModsConfig = new CustomNode
         {
@@ -1153,6 +1176,7 @@ public class NecropolisQolSettings : ISettings
                 }
 
                 ImGui.Indent();
+
                 if (!ImGui.TreeNode("Modifier & Monster Weighting"))
                 {
                     return;
@@ -1173,11 +1197,21 @@ public class NecropolisQolSettings : ISettings
                 }
 
                 ImGui.SameLine();
-
                 ImGui.Checkbox("Hide 0 Set Weightings", ref HotSwap.HideZeroSetWeights);
-
                 ImGui.InputTextWithHint("Modifier Filter##ModFilter", "Filter Modifiers here", ref modFilter, 100);
                 ImGui.InputTextWithHint("Monster Filter##MobFilter", "Filter Monsters here", ref mobFilter, 100);
+
+                #region edit mob list modal
+
+                if (ImGui.Button($"Edit Monster List for Modifier: {GetHumanName(selectedModId, NormalMods)}"))
+                {
+                    ImGui.OpenPopup(EditModMobListPopup);
+                }
+
+                ShowMonsterListPopup(EditModMobListPopup, HotSwap.ModMobWeightings[selectedModId], out var outList);
+                HotSwap.ModMobWeightings[selectedModId] = outList;
+
+                #endregion
 
                 if (!ImGui.BeginTable("ModMobConfig", 2, ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.Borders))
                 {
@@ -1227,7 +1261,8 @@ public class NecropolisQolSettings : ISettings
 
     private void DisplayMobWeightings(string mobFilter)
     {
-        if (string.IsNullOrEmpty(selectedModId) || !HotSwap.ModMobWeightings.TryGetValue(selectedModId, out var mobWeightings))
+        if (string.IsNullOrEmpty(selectedModId) ||
+            !HotSwap.ModMobWeightings.TryGetValue(selectedModId, out var mobWeightings))
         {
             return;
         }
@@ -1295,7 +1330,11 @@ public class NecropolisQolSettings : ISettings
     private void ResetModMobWeightings()
     {
         HotSwap.ModMobWeightings = [];
-        InitializeModMobWeightings();
+
+        foreach (var (id, name) in NormalMods)
+            HotSwap.ModMobWeightings[id] = [];
+
+        selectedModId = NormalMods.FirstOrDefault().Id;
     }
 
     #region Save / Load Section
@@ -1351,9 +1390,7 @@ public class NecropolisQolSettings : ISettings
         {
             var fullPath = Path.Combine(NecropolisQol.Main.ConfigDirectory, $"{fileName}.json");
             var fileContent = File.ReadAllText(fullPath);
-
-            HotSwap
-                = JsonConvert.DeserializeObject<Swappable>(fileContent);
+            HotSwap = JsonConvert.DeserializeObject<Swappable>(fileContent);
         }
         catch
         {
@@ -1377,6 +1414,83 @@ public class NecropolisQolSettings : ISettings
 
         return fileList;
     }
+
+    #endregion
+
+    #region Edit Monster List
+
+    public bool ShowMonsterListPopup(string popupId, Dictionary<string, float> refList, out Dictionary<string, float> outList)
+    {
+        outList = new Dictionary<string, float>(refList);
+        var showPopup = true;
+
+        if (!ImGui.BeginPopupModal(popupId, ref showPopup, ImGuiWindowFlags.None))
+        {
+            return false;
+        }
+
+        if (ImGui.Button("Close"))
+        {
+            ImGui.CloseCurrentPopup();
+        }
+
+        if (!ImGui.BeginTable("ModMobConfig", 2, ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.Borders))
+        {
+            return false;
+        }
+
+        ImGui.TableSetupColumn("All Monsters", ImGuiTableColumnFlags.None, 500);
+        ImGui.TableSetupColumn("Current Monsters", ImGuiTableColumnFlags.None, 500);
+        ImGui.TableHeadersRow();
+
+        // Column for unselected monsters
+        ImGui.TableNextColumn();
+        ImGui.InputTextWithHint("##AllMonsters", "Filter..", ref popupAllFilter, 100);
+
+        foreach (var monster in AllMonsters)
+        {
+            if (!string.IsNullOrEmpty(popupAllFilter) && !monster.Name.Contains(popupAllFilter, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (refList.ContainsKey(monster.Id))
+            {
+                continue;
+            }
+
+            if (ImGui.Selectable($"{GetHumanName(monster.Id, AllMonsters)}##{monster.Id}", false, ImGuiSelectableFlags.DontClosePopups))
+            {
+                refList[monster.Id] = 0.0f;
+            }
+        }
+
+
+        // Column for selected monsters
+        ImGui.TableNextColumn();
+        ImGui.InputTextWithHint("##CurrentMonsters", "Filter..", ref popupCurrentFilter, 100);
+
+        foreach (var kvp in refList)
+        {
+            if (!string.IsNullOrEmpty(popupCurrentFilter) && !GetHumanName(kvp.Key, AllMonsters).Contains(popupCurrentFilter, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (ImGui.Selectable($"{GetHumanName(kvp.Key, AllMonsters)}##{kvp.Key}", false, ImGuiSelectableFlags.DontClosePopups))
+            {
+                refList.Remove(kvp.Key);
+            }
+        }
+
+        ImGui.EndTable();
+        ImGui.EndPopup();
+        outList = refList;
+        return !showPopup;
+    }
+
+    public string GetHumanName(string id, IReadOnlyList<(string Id, string Name)> list) =>
+        list.FirstOrDefault(monster => monster.Id == id).Name ?? "<Unknown_Name>";
 
     #endregion
 
