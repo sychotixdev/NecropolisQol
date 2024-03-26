@@ -3,14 +3,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using ExileCore.Shared.Helpers;
 using ExileCore.Shared.Interfaces;
 using ExileCore.Shared.Nodes;
 using ImGuiNET;
 using NecropolisQol.Models;
 using Newtonsoft.Json;
-using SharpDX;
-using System.Collections.Immutable;
 
 namespace NecropolisQoL;
 
@@ -1016,6 +1013,9 @@ public class NecropolisQolSettings : ISettings
 
     public ToggleNode GiveSuggestions { get; set; } = new ToggleNode(true);
 
+
+    // Messy settings below - clean as you see fit.
+
     private string selectedModId;
 
     // Load last saved for both on initialization as its less confusing
@@ -1038,19 +1038,21 @@ public class NecropolisQolSettings : ISettings
     private const string OverwritePopup = "Overwrite Confirmation";
 
     public Swappable HotSwap { get; set; } = new();
+    public bool isDevotionModSelected;
 
     public class Swappable
     {
         public Dictionary<string, Dictionary<string, float>> ModMobWeightings { get; set; } = [];
+        public Dictionary<string, Dictionary<string, float>> DevotionModMobWeightings { get; set; } = [];
         public bool HideZeroSetWeights;
     }
 
 
     [JsonIgnore]
-    public CustomNode ModsConfig { get; }
+    public CustomNode HotSwappableConfiguration { get; }
 
     [JsonIgnore]
-    public CustomNode ModWeights { get; }
+    public CustomNode HotSwappableWeightings { get; }
 
     public NecropolisQolSettings()
     {
@@ -1058,12 +1060,15 @@ public class NecropolisQolSettings : ISettings
 
         if (HotSwap.ModMobWeightings == null)
         {
-            ResetModMobWeightings();
+            ClearNormalWeightings();
         }
 
-        selectedModId ??= NormalMods.FirstOrDefault().Id;
+        if (HotSwap.DevotionModMobWeightings == null)
+        {
+            ClearDevotionWeightings();
+        }
 
-        ModsConfig = new CustomNode
+        HotSwappableConfiguration = new CustomNode
         {
             DrawDelegate = () =>
             {
@@ -1086,23 +1091,21 @@ public class NecropolisQolSettings : ISettings
                 {
                     files = GetFiles();
 
-                    // Sanitize the file name by replacing invalid characters
                     _fileSaveName = Path.GetInvalidFileNameChars().Aggregate(
                         _fileSaveName,
                         (current, c) => current.Replace(c, '_')
                     );
 
-                    if (_fileSaveName == string.Empty)
+                    if (_fileSaveName != string.Empty)
                     {
-                        // Log error when the file name is empty
-                    }
-                    else if (files.Contains(_fileSaveName))
-                    {
-                        ImGui.OpenPopup(OverwritePopup);
-                    }
-                    else
-                    {
-                        SaveFile(HotSwap, $"{_fileSaveName}.json");
+                        if (files.Contains(_fileSaveName))
+                        {
+                            ImGui.OpenPopup(OverwritePopup);
+                        }
+                        else
+                        {
+                            SaveFile(HotSwap, $"{_fileSaveName}.json");
+                        }
                     }
                 }
 
@@ -1150,12 +1153,10 @@ public class NecropolisQolSettings : ISettings
                     }
                 }
 
-                if (ShowButtonPopup(OverwritePopup, ["Are you sure?", "STOP"], out var saveSelectedIndex))
+                if (ShowButtonPopup(OverwritePopup, ["Are you sure?", "STOP"], out var saveSelectedIndex) &&
+                    saveSelectedIndex == 0)
                 {
-                    if (saveSelectedIndex == 0)
-                    {
-                        SaveFile(HotSwap, $"{_fileSaveName}.json");
-                    }
+                    SaveFile(HotSwap, $"{_fileSaveName}.json");
                 }
 
                 ModMobWeightingLastSaved = _fileSaveName;
@@ -1166,7 +1167,7 @@ public class NecropolisQolSettings : ISettings
 
         string modFilter = "", mobFilter = "";
 
-        ModWeights = new CustomNode
+        HotSwappableWeightings = new CustomNode
         {
             DrawDelegate = () =>
             {
@@ -1182,6 +1183,15 @@ public class NecropolisQolSettings : ISettings
                     return;
                 }
 
+                if (ImGui.Checkbox("Show Devotion Mods", ref isDevotionModSelected))
+                {
+                    selectedModId = null;
+                }
+
+                var modWeightings = isDevotionModSelected ? HotSwap.DevotionModMobWeightings : HotSwap.ModMobWeightings;
+                var mods = isDevotionModSelected ? DevotionMods : NormalMods;
+                selectedModId ??= mods.FirstOrDefault().Id;
+
                 if (ImGui.Button("[x] Clear All"))
                 {
                     ImGui.OpenPopup(ClearSettingPopup);
@@ -1191,7 +1201,15 @@ public class NecropolisQolSettings : ISettings
                 {
                     if (clearSelectedIndex == 0)
                     {
-                        ResetModMobWeightings();
+                        if (isDevotionModSelected)
+                        {
+                            ClearDevotionWeightings();
+                        }
+                        else
+                        {
+                            ClearNormalWeightings();
+                        }
+
                         return;
                     }
                 }
@@ -1201,17 +1219,13 @@ public class NecropolisQolSettings : ISettings
                 ImGui.InputTextWithHint("Modifier Filter##ModFilter", "Filter Modifiers here", ref modFilter, 100);
                 ImGui.InputTextWithHint("Monster Filter##MobFilter", "Filter Monsters here", ref mobFilter, 100);
 
-                #region edit mob list modal
-
-                if (ImGui.Button($"Edit Monster List for Modifier: {GetHumanName(selectedModId, NormalMods)}"))
+                if (ImGui.Button($"Edit Monster List for Modifier: {GetHumanName(selectedModId, mods)}"))
                 {
                     ImGui.OpenPopup(EditModMobListPopup);
                 }
 
-                ShowMonsterListPopup(EditModMobListPopup, HotSwap.ModMobWeightings[selectedModId], out var outList);
-                HotSwap.ModMobWeightings[selectedModId] = outList;
-
-                #endregion
+                ShowMonsterListPopup(EditModMobListPopup, modWeightings[selectedModId], out var outList);
+                modWeightings[selectedModId] = outList;
 
                 if (!ImGui.BeginTable("ModMobConfig", 2, ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.Borders))
                 {
@@ -1225,7 +1239,7 @@ public class NecropolisQolSettings : ISettings
                 // Modifiers column
                 ImGui.TableNextColumn();
 
-                var filteredMods = NormalMods
+                var filteredMods = mods
                                    .Where(t => t.Name.Contains(modFilter, StringComparison.InvariantCultureIgnoreCase))
                                    .ToList();
 
@@ -1243,10 +1257,19 @@ public class NecropolisQolSettings : ISettings
 
                 // Monsters column
                 ImGui.TableNextColumn();
-                DisplayMobWeightings(mobFilter);
+                DisplayMobWeightings(mobFilter, ref modWeightings);
                 ImGui.EndTable();
                 ImGui.TreePop();
                 ImGui.Unindent();
+
+                if (isDevotionModSelected)
+                {
+                    HotSwap.DevotionModMobWeightings = modWeightings;
+                }
+                else
+                {
+                    HotSwap.ModMobWeightings = modWeightings;
+                }
             }
         };
     }
@@ -1259,10 +1282,10 @@ public class NecropolisQolSettings : ISettings
         }
     }
 
-    private void DisplayMobWeightings(string mobFilter)
+    private void DisplayMobWeightings(string mobFilter, ref Dictionary<string, Dictionary<string, float>> inputList)
     {
         if (string.IsNullOrEmpty(selectedModId) ||
-            !HotSwap.ModMobWeightings.TryGetValue(selectedModId, out var mobWeightings))
+            !inputList.TryGetValue(selectedModId, out var mobWeightings))
         {
             return;
         }
@@ -1285,18 +1308,14 @@ public class NecropolisQolSettings : ISettings
             DisplayWeightSlider(mobId, ref refModWeight, mobName, weight);
             mobWeightings[mobId] = refModWeight;
         }
+
+        return;
     }
 
-    private void DisplayWeightSlider(string mobId, ref float weight, string mobName, float initialWeight)
+    private static void DisplayWeightSlider(string mobId, ref float weight, string mobName, float initialWeight)
     {
         var tempWeight = weight;
-        var wasStyled = HighlightWeightChange(weight);
         ImGui.SliderFloat($"##{mobId}", ref tempWeight, -10.0f, 10.0f);
-
-        if (wasStyled)
-        {
-            ImGui.PopStyleColor();
-        }
 
         if (tempWeight != initialWeight)
         {
@@ -1306,28 +1325,7 @@ public class NecropolisQolSettings : ISettings
         ImGui.SameLine();
         ImGui.Text(mobName);
     }
-
-    private static bool HighlightWeightChange(float weight)
-    {
-        if (weight == 0)
-        {
-            return false;
-        }
-
-        var color = weight > 0 ? new Vector4(0.16f, 0.48f, 0.16f, 0.54f) : new Vector4(0.48f, 0.16f, 0.16f, 0.93f);
-        ImGui.PushStyleColor(ImGuiCol.FrameBg, color.ToVector4Num());
-        return true;
-    }
-
-    private void InitializeModMobWeightings()
-    {
-        foreach (var mod in NormalMods)
-            HotSwap.ModMobWeightings[mod.Id] = AllMonsters.ToDictionary(mob => mob.Id, mob => 0f);
-
-        selectedModId = NormalMods.FirstOrDefault().Id;
-    }
-
-    private void ResetModMobWeightings()
+    private void ClearNormalWeightings()
     {
         HotSwap.ModMobWeightings = [];
 
@@ -1335,6 +1333,15 @@ public class NecropolisQolSettings : ISettings
             HotSwap.ModMobWeightings[id] = [];
 
         selectedModId = NormalMods.FirstOrDefault().Id;
+    }
+    private void ClearDevotionWeightings()
+    {
+        HotSwap.DevotionModMobWeightings = [];
+
+        foreach (var (id, name) in DevotionMods)
+            HotSwap.DevotionModMobWeightings[id] = [];
+
+        selectedModId = DevotionMods.FirstOrDefault().Id;
     }
 
     #region Save / Load Section
@@ -1417,14 +1424,12 @@ public class NecropolisQolSettings : ISettings
 
     #endregion
 
-    #region Edit Monster List
-
-    public bool ShowMonsterListPopup(string popupId, Dictionary<string, float> refList, out Dictionary<string, float> outList)
+    public bool ShowMonsterListPopup(string popupId, Dictionary<string, float> inputList, out Dictionary<string, float> outputList)
     {
-        outList = new Dictionary<string, float>(refList);
+        outputList = new Dictionary<string, float>(inputList);
         var showPopup = true;
 
-        if (!ImGui.BeginPopupModal(popupId, ref showPopup, ImGuiWindowFlags.None))
+        if (!ImGui.BeginPopupModal(popupId, ref showPopup, ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoCollapse))
         {
             return false;
         }
@@ -1454,14 +1459,14 @@ public class NecropolisQolSettings : ISettings
                 continue;
             }
 
-            if (refList.ContainsKey(monster.Id))
+            if (inputList.ContainsKey(monster.Id))
             {
                 continue;
             }
 
             if (ImGui.Selectable($"{GetHumanName(monster.Id, AllMonsters)}##{monster.Id}", false, ImGuiSelectableFlags.DontClosePopups))
             {
-                refList[monster.Id] = 0.0f;
+                inputList[monster.Id] = 0.0f;
             }
         }
 
@@ -1470,7 +1475,7 @@ public class NecropolisQolSettings : ISettings
         ImGui.TableNextColumn();
         ImGui.InputTextWithHint("##CurrentMonsters", "Filter..", ref popupCurrentFilter, 100);
 
-        foreach (var kvp in refList)
+        foreach (var kvp in inputList)
         {
             if (!string.IsNullOrEmpty(popupCurrentFilter) && !GetHumanName(kvp.Key, AllMonsters).Contains(popupCurrentFilter, StringComparison.OrdinalIgnoreCase))
             {
@@ -1479,19 +1484,17 @@ public class NecropolisQolSettings : ISettings
 
             if (ImGui.Selectable($"{GetHumanName(kvp.Key, AllMonsters)}##{kvp.Key}", false, ImGuiSelectableFlags.DontClosePopups))
             {
-                refList.Remove(kvp.Key);
+                inputList.Remove(kvp.Key);
             }
         }
 
         ImGui.EndTable();
         ImGui.EndPopup();
-        outList = refList;
+        outputList = inputList;
         return !showPopup;
     }
 
     public string GetHumanName(string id, IReadOnlyList<(string Id, string Name)> list) =>
         list.FirstOrDefault(monster => monster.Id == id).Name ?? "<Unknown_Name>";
-
-    #endregion
 
 }
