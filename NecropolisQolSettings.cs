@@ -1007,6 +1007,7 @@ public class NecropolisQolSettings : ISettings
     public ToggleNode Enable { get; set; } = new ToggleNode(false);
 
     public RangeNode<int> DevotedBonusValue { get; set; } = new RangeNode<int>(50, 0, 100);
+    public RangeNode<float> HasPackLeaderValue { get; set; } = new RangeNode<float>(1.5f, -10f, 10f);
 
     public RangeNode<float> DangerWeight { get; set; } = new RangeNode<float>(0.5f, 0, 1);
 

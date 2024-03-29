@@ -60,7 +60,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
             {
                 foreach(var monster in monsters)
                 {
-                    Graphics.DrawText(monster.CalculatedValue.ToString(), monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.BottomLeft, Color.Green, ExileCore.Shared.Enums.FontAlign.Left);
+                    Graphics.DrawText(((int)monster.CalculatedValue).ToString(), monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.BottomLeft, Color.Green, ExileCore.Shared.Enums.FontAlign.Left);
                 }
             }
 
@@ -68,7 +68,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
             {
                 foreach (var mod in mods)
                 {
-                    Graphics.DrawText(mod.CalculatedValue.ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.BottomLeft, Color.Green, ExileCore.Shared.Enums.FontAlign.Left);
+                    Graphics.DrawText(((int)mod.CalculatedValue).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.BottomLeft, Color.Green, ExileCore.Shared.Enums.FontAlign.Left);
                 }
             }
 
@@ -76,7 +76,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
             {
                 foreach (var mod in mods)
                 {
-                    Graphics.DrawText(mod.CalculatedDanger.ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.BottomRight, Color.Red, ExileCore.Shared.Enums.FontAlign.Right);
+                    Graphics.DrawText(((int)mod.CalculatedDanger).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.BottomRight, Color.Red, ExileCore.Shared.Enums.FontAlign.Right);
                 }
             }
 
@@ -207,11 +207,11 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         return model;
     }
 
-    private int CalculateMonsterValue(MonsterModel model)
+    private float CalculateMonsterValue(MonsterModel model)
     {
         if (model == null) return -1;
 
-        int monsterVal = 0;
+        float monsterVal = 0;
 
         switch (model.Density)
         {
@@ -231,6 +231,11 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         int averagePackDensity = (model.PackSizeLow + model.PackSizeHigh) / 2;
 
         monsterVal += averagePackDensity;
+
+        // Packs with a pack leader can definitely be more valuable.
+        // Lets add a tier modifier for that.
+        if (!String.IsNullOrEmpty(model.MonsterAssociation.Pack.LeaderDescription))
+            monsterVal += 10 * Settings.HasPackLeaderValue.Value;
 
         // Before we return... lets throw it on the model for future logic
         model.CalculatedValue = monsterVal;
