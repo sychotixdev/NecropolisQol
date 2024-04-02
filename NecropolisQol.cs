@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Windows.Forms;
 using ExileCore;
 using ExileCore.PoEMemory;
 using ExileCore.PoEMemory.Components;
@@ -22,6 +23,8 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
     public override bool Initialise()
     {
         Main = this;
+        Settings.LoadMods();
+
         return base.Initialise();
     }
 
@@ -41,20 +44,28 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
             })
         {
             // Pull the data for us to process
-            var mods = GetModList(necropolisMonsterPanel);
-            var monsters = GetMonsterList(necropolisMonsterPanel);
+            GetModelLists(necropolisMonsterPanel, out List<ModModel> mods, out List<MonsterModel> monsters);
 
-            monsters = monsters.OrderByDescending(x => CalculateMonsterValue(x)).ToList();
+            // Check if we found any new mods
+            List<string> newMods = new List<string>();
+            foreach(var mod in mods)
+            {
+                if(!Settings.AllMods.Contains(mod.Name))
+                    newMods.Add(mod.Name);
+            }
+
+            // If we had new mods, add them to our mod list and file
+            if (newMods.Count > 0) { Settings.AddMods(newMods); }
+
+            monsters.ForEach(x => CalculateMonsterValue(x));
 
             // Loop through each mod so that we pre-calculate mod values.
             // No need to order this list as its reordered for each monster based on danger
             foreach(var mod in mods)
             {
                 CalculateModValue(mod);
-                var monster = monsters.FirstOrDefault(x => x.Order == mod.Order);
-                CalculateModDanger(mod, monster);
+                CalculateModDanger(mod);
             }
-            mods.ForEach(x => CalculateModValue(x));
 
             if (Settings.MonsterValue.Value)
             {
@@ -76,51 +87,48 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
             {
                 foreach (var mod in mods)
                 {
-                    Graphics.DrawText(((int)mod.CalculatedDanger).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.BottomRight, Color.Red, ExileCore.Shared.Enums.FontAlign.Right);
+                    if (!mod.IsDevoted)
+                        Graphics.DrawText(((int)mod.CalculatedDanger).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.BottomRight, Color.Red, ExileCore.Shared.Enums.FontAlign.Right);
                 }
             }
 
 
             if (Settings.GiveSuggestions.Value)
             {
-                ModModel existingModel = null;
-                ModModel desiredModel = null;
+                MonsterModel existingModel = null;
+                MonsterModel desiredModel = null;
 
-                List<int> alreadyHandledMods = new List<int>();
+                List<int> alreadyHandledMonsters = new List<int>();
 
-                for (int i = 0; i < monsters.Count; i++)
+                mods = mods.OrderByDescending(x => x.CalculatedValue).ToList();
+                for (int i = 0; i < mods.Count; i++)
                 {
-                    MonsterModel monster = monsters.ElementAt(i);
-
-                    // TODO: At this point, we could hyper-optimize and ensure that we choos the end "board" with the highest total net value.
-                    // I think this is too complicated for a first draft though and potentially too resource intensive. Lets take the more instant
-                    // easy calculation of only optimizing the top value monsters
-                    // NOTE: If you make this even remotely more complicated... we probably need to take this off the render thread
+                    var mod = mods.ElementAt(i);
 
                     // Reorder the mod list for us, ignoring all mods that are already claimed
-                    var ourBestMods = mods.Where(x => !alreadyHandledMods.Contains(x.Order))
-                        .OrderByDescending(mod => mod.CalculatedValue - CalculateModDanger(mod, monster))
+                    var ourBestMonsters = monsters.Where(x => !alreadyHandledMonsters.Contains(x.Order))
+                        .OrderByDescending(monster => CalculateFinalWeight(mod, monster))
                         .ToList();
 
-                    ModModel mod = ourBestMods.FirstOrDefault();
+                    var bestMonster = ourBestMonsters.FirstOrDefault();
 
                     // First... is this mod already in this slot? If so... skip it
-                    if (monster.Order == mod.Order)
+                    if (bestMonster.Order == mod.Order)
                     {
-                        alreadyHandledMods.Add(mod.Order);
+                        alreadyHandledMonsters.Add(bestMonster.Order);
                         continue;
                     }
 
                     // Next... to prevent ever having a pointless switch... lets look at the mod value already in this slot
-                    existingModel = ourBestMods.FirstOrDefault(x => x.Order == monster.Order);
-                    if (existingModel != null && (mod.CalculatedValue - mod.CalculatedDanger) == (existingModel.CalculatedValue - mod.CalculatedDanger))
+                    existingModel = monsters.FirstOrDefault(x => x.Order == mod.Order);
+                    if (existingModel != null && (int)(CalculateFinalWeight(mod, existingModel)) == (int)(CalculateFinalWeight(mod, bestMonster)))
                     {
-                        alreadyHandledMods.Add(existingModel.Order);
+                        alreadyHandledMonsters.Add(existingModel.Order);
                         continue;
                     }
 
                     // If we've made it this far, we've found something that needs to switch. Render that.
-                    desiredModel = mod;
+                    desiredModel = bestMonster;
                     break;
                 }
 
@@ -130,44 +138,43 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                     // TODO: Add configurable color and thickness
                     // TODO: Make an arrow and not just a line?
                     // TODO: Probably position better, maybe 25% through frame?
-                    Graphics.DrawLine(existingModel.MonsterAssociation.ModElement.PositionNum, desiredModel.MonsterAssociation.ModElement.PositionNum, 5.0f, Color.Green);
+                    Graphics.DrawLine(existingModel.MonsterAssociation.ModElement.GetClientRectCache.Center.ToVector2Num(), desiredModel.MonsterAssociation.ModElement.GetClientRectCache.Center.ToVector2Num(), 5.0f, Color.Green);
                 }
             }
         }
     }
 
-    private List<ModModel> GetModList(NecropolisMonsterPanel necropolisTransitionWindow)
+    private float CalculateFinalWeight(ModModel mod, MonsterModel monster, bool excludeModTier=false)
     {
-        var modList = new List<ModModel>();
-        var associations = necropolisTransitionWindow.Associations;
-        for (int i = 0; i < associations.Count; i++)
-        {
-            ModModel model = ConvertElementToMod(associations.ElementAtOrDefault(i));
-            if (model != null)
-            {
-                model.Order = i;
-                modList.Add(model);
-            }
-        }
-
-        return modList;
+        return mod.CalculatedValue + monster.CalculatedValue - mod.CalculatedDanger;
     }
 
-    private List<MonsterModel> GetMonsterList(NecropolisMonsterPanel necropolisTransitionWindow)
+    private void GetModelLists(NecropolisMonsterPanel necropolisTransitionWindow, out List<ModModel> mods, out List<MonsterModel> monsters)
     {
-        var monsterList = new List<MonsterModel>();
+        mods = new List<ModModel>();
+        monsters = new List<MonsterModel>();
         var associations = necropolisTransitionWindow.Associations;
         for (int i = 0; i < associations.Count; i++)
         {
-            MonsterModel model = ConvertElementToMonster(associations.ElementAtOrDefault(i));
-            if (model != null)
+            MonsterModel monsterModel = ConvertElementToMonster(associations.ElementAtOrDefault(i));
+            if (monsterModel != null)
             {
-                model.Order = i;
-                monsterList.Add(model);
+                monsterModel.Order = i;
+                monsters.Add(monsterModel);
+            }
+
+            ModModel modModel = ConvertElementToMod(associations.ElementAtOrDefault(i));
+            if (modModel != null)
+            {
+                modModel.Order = i;
+
+                // Adjust our mod model if its already been adjusted by the monster
+                if (monsterModel != null && !modModel.IsDevoted)
+                    modModel.Tier -= monsterModel.ModTierModifier;
+
+                mods.Add(modModel);
             }
         }
-
-        return monsterList;
     }
 
     private MonsterModel ConvertElementToMonster(NecropolisMonsterPanelMonsterAssociation element)
@@ -185,6 +192,32 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         
         model.Density = MonsterModel.MonsterDensityFromId(element.PackFrequency.Id);
 
+        // We have to do some funky stuff to get the mod tier modifier
+        Element monsterModifiers = element.MonsterPortrait.GetChildAtIndex(1);
+        if (monsterModifiers != null && monsterModifiers.ChildCount > 0)
+        {
+            // If we have children... this monster has some special mods on it
+            foreach (Element child in monsterModifiers.Children)
+            {
+                string tooltipText = child.Tooltip?.Text ?? null;
+
+                if (tooltipText != null)
+                {
+                    if (tooltipText.Contains("+1"))
+                    {
+                        model.ModTierModifier = 1;
+                        break;
+                    }
+                    else if (tooltipText.Contains("-1"))
+                    {
+                        model.ModTierModifier = -1;
+                        break;
+                    }
+                    // Technically there is another with "50% more" or "50% less" but I don't think we need that
+                }
+            }
+        }
+
         return model;
     }
 
@@ -196,10 +229,30 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         ModModel model = new ModModel();
         model.MonsterAssociation = element;
 
-        model.Name = element.ModElement.Text;
+        model.Name = element.ModElement.GetChildAtIndex(0)?.TextNoTags ?? "NoName";
+        model.Name = Regex.Replace(model.Name, @"\d+", "#");
 
         // I don't think we can make much of a guess on the tier format
-        model.Tier = 1;
+        var tierText = element.ModElement.GetChildFromIndices(new int[] { 3, 0 })?.Text ?? string.Empty;
+        int tier = 1;
+        if (tierText.StartsWith("Noble-Haunted"))
+            tier = 6;
+        else if (tierText.StartsWith("Thaumaturgist-Haunted"))
+            tier = 5;
+        else if (tierText.StartsWith("Gemling-Haunted"))
+            tier = 4;
+        else if (tierText.StartsWith("Soldier-Haunted"))
+            tier = 3;
+        else if (tierText.StartsWith("Peasant-Haunted"))
+            tier = 2;
+        else if (tierText.StartsWith("Servant-Haunted"))
+            tier = 1;
+        else if (tierText.StartsWith("Devoted"))
+        {
+            model.IsDevoted = true;
+        }
+
+        model.Tier = tier;
 
         // TODO: Need to mark things as empty mod slots as well.
         // This may only impact campaign... guessing maps will have 6/6 every time?
@@ -237,6 +290,9 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         if (!String.IsNullOrEmpty(model.MonsterAssociation.Pack.LeaderDescription))
             monsterVal += 10 * Settings.HasPackLeaderValue.Value;
 
+        // Adjust this monster's value up or down depending on if it increases mod tier
+        monsterVal += model.ModTierModifier * 10;
+
         // Before we return... lets throw it on the model for future logic
         model.CalculatedValue = monsterVal;
 
@@ -247,29 +303,18 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
     {
         if (model == null || model.Name == null) return 0;
 
-        string lowerCaseModelDescription = model.Name.ToLower();
-
         float modVal = 0;
 
         // Mod is made more valuable (or less valuable if negative) by tier
         modVal +=  10 * model.Tier;
 
         // If this is a devotion mod, add our base devition bonus
-        if (Settings.DevotionMods.Any(x => model.Name == x.Id))
+        if (model.IsDevoted)
             modVal += Settings.DevotedBonusValue.Value;
 
-        // Now, lets make any adjustments to the danger based on the mod's danger level (and overrides for this monster)
-        if (Settings.HotSwap.DevotionModMobWeightings.TryGetValue(model.Name, out Dictionary<string, float> overrides))
-        {
-            float overrideValue = 0;
-            // TODO: Technically there are overrides per monster that we are just throwing away
-            // Value is not based on monster. We should probably fix the UI, not this code?
-            // Unless we truely want to modify value per monster... which would complicate things
-            if (overrides.TryGetValue(NecropolisQolSettings.DEFAULT_MONSTER, out overrideValue))
-            {
-                modVal += overrideValue * 10;
-            }
-        }
+        // Modify the tier based on the config
+        Settings.Weights.TryGetValue(model.Name ?? string.Empty, out float tierModifier);
+        modVal += 10 * tierModifier;
 
         // Before we return... lets throw it on the model for future logic
         model.CalculatedValue = modVal;
@@ -277,22 +322,13 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         return modVal;
     }
 
-    private float CalculateModDanger(ModModel mod, MonsterModel monster)
+    private float CalculateModDanger(ModModel mod)
     {
         float danger = 0;
 
         // First, mods are more dangerous the higher the tier
-        danger += mod.Tier * 10;
-
-        // Now, lets make any adjustments to the danger based on the mod's danger level (and overrides for this monster)
-        if (Settings.HotSwap.ModMobWeightings.TryGetValue(mod.Name, out Dictionary<string, float> overrides))
-        {
-            float overrideValue = 0;
-            if (overrides.TryGetValue(monster.Name, out overrideValue) || overrides.TryGetValue(NecropolisQolSettings.DEFAULT_MONSTER, out overrideValue))
-            {
-                danger += overrideValue * 10;
-            }
-        }
+        if (!mod.IsDevoted)
+            danger += mod.Tier * 10;
 
         // Multiply the final danger value by our overall danger weight.
         // This is there to adjust how juiced we want the map. 0 = no care for danger, 1 = REALLY care about danger.

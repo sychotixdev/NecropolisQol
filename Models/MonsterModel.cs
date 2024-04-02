@@ -23,6 +23,8 @@ namespace NecropolisQol.Models
         public int PackSizeHigh { get; set; } = 1;
         public MonsterDensity Density { get; set; } = MonsterDensity.None;
 
+        public int ModTierModifier { get; set; } = 0;
+
         public NecropolisMonsterPanelMonsterAssociation MonsterAssociation { get; set; }
         public int Order { get; set; }
         public float CalculatedValue { get; set; }
