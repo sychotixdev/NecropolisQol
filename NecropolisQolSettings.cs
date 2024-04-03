@@ -8,6 +8,7 @@ using ExileCore.Shared.Nodes;
 using ImGuiNET;
 using Newtonsoft.Json;
 using SharpDX;
+using System.Collections.Immutable;
 
 namespace NecropolisQoL;
 
@@ -187,7 +188,7 @@ public class NecropolisQolSettings : ISettings
                                         .Where(t => t.Contains(modFilter, StringComparison.InvariantCultureIgnoreCase))
                                         .ToList();
 
-
+                filteredMods.Sort();
 
                 if (!ImGui.BeginTable("WeightingTable", 3, ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.Borders))
                 {
