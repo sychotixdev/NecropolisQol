@@ -28,12 +28,6 @@ public class NecropolisQolSettings : ISettings
     [JsonIgnore]
     public Dictionary<string,int> ModMinTiers { get; set; } = new Dictionary<string, int>();
 
-    [JsonIgnore]
-    public CustomNode HotSwappableConfiguration { get; }
-
-    [JsonIgnore]
-    public CustomNode WeightsList { get; set; }
-
     public ToggleNode Enable { get; set; } = new ToggleNode(false);
 
     public RangeNode<int> DevotedBonusValue { get; set; } = new RangeNode<int>(50, 0, 100);
@@ -51,6 +45,12 @@ public class NecropolisQolSettings : ISettings
     public string ModMobWeightingLastSelected { get; set; } = "";
 
     public Swappable HotSwap { get; set; } = new();
+
+    [JsonIgnore]
+    public CustomNode HotSwappableConfiguration { get; }
+
+    [JsonIgnore]
+    public CustomNode WeightsList { get; set; }
 
     public class Swappable
     {
