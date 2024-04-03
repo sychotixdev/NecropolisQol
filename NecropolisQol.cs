@@ -75,7 +75,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
             {
                 foreach(var monster in monsters)
                 {
-                    Graphics.DrawText(((int)monster.CalculatedValue).ToString(), monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.TopLeft, Color.Green, ExileCore.Shared.Enums.FontAlign.Left);
+                    Graphics.DrawText(((int)monster.CalculatedValue).ToString(), monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.TopLeft, Color.Green, 20, ExileCore.Shared.Enums.FontAlign.Left);
                 }
             }
 
@@ -83,7 +83,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
             {
                 foreach (var mod in mods)
                 {
-                    Graphics.DrawText(((int)mod.CalculatedValue).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft, Color.Green, ExileCore.Shared.Enums.FontAlign.Left);
+                    Graphics.DrawText(((int)mod.CalculatedValue).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft, Color.Green, 20, ExileCore.Shared.Enums.FontAlign.Left);
                 }
             }
 
@@ -92,7 +92,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                 foreach (var mod in mods)
                 {
                     if (!mod.IsDevoted)
-                        Graphics.DrawText(((int)mod.CalculatedDanger).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.TopRight, Color.Red, ExileCore.Shared.Enums.FontAlign.Right);
+                        Graphics.DrawText(((int)mod.CalculatedDanger).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.TopRight, Color.Red, 20, ExileCore.Shared.Enums.FontAlign.Right);
                 }
             }
 
@@ -196,7 +196,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
 
             // Now we need to do some sanity checking on this association
             // Do we know of this one already? Is it in our list of tiers?
-            if (minTier != 0)
+            if (minTier == 0)
             {
                 if (ListOfNormalTiers.TryGetValue(modModel.Name, out int value))
                 {

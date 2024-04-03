@@ -116,7 +116,7 @@ public class NecropolisQolSettings : ISettings
             foreach(var line in fileContents)
             {
                 var modName = line.Substring(line.IndexOf(',') + 1);
-                var minTier = line.Substring(0, line.IndexOf(",") + 1);
+                var minTier = line.Substring(0, line.IndexOf(','));
 
                 ModMinTiers[modName] = int.Parse(minTier);
             }
