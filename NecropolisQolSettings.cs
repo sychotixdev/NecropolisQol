@@ -205,10 +205,13 @@ public class NecropolisQolSettings : ISettings
 
                 for (var i = 0; i < filteredMods.Count; i++)
                 {
+                    if (filteredMods[i] == "NoName")
+                        continue;
+
                     var usableSpace = ImGui.GetContentRegionAvail();
                     ImGui.SetNextItemWidth(usableSpace.X);
 
-                    if (!HotSwap.Weights.TryGetValue(filteredMods[i], out var tempWeight) && filteredMods[i] != "NoName")
+                    if (!HotSwap.Weights.TryGetValue(filteredMods[i], out var tempWeight))
                     {
                         HotSwap.Weights.Add(filteredMods[i], (highlight: false, weight: 0.0f));
                     }
@@ -258,7 +261,16 @@ private static void DisplayWeightSlider(string modId, ref float weight)
     {
         try
         {
+            // purge NoName from newMods, im unaware how fragile the inner workings are.
+            var newModsList = newMods.ToList();
+
+            for (var index = 0; index < newModsList.Count; index++)
+                if (newModsList[index] == "NoName")
+                    newMods.RemoveAt(index);
+
             AllMods.AddRange(newMods);
+
+            AllMods.Sort();
             var fullPath = Path.Combine(NecropolisQol.Main.ConfigDirectory, AllModsFileName);
             var jsonString = JsonConvert.SerializeObject(AllMods, Formatting.Indented);
             File.WriteAllText(fullPath, jsonString);
