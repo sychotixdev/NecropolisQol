@@ -91,6 +91,12 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                     var backgroundRect = new RectangleF(mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft.X, mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft.Y, textSize.X, textSize.Y);
                     Graphics.DrawBox(backgroundRect, Color.Black);
                     Graphics.DrawText(((int)mod.CalculatedValue).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft.ToVector2Num(), Color.Green, 20, ExileCore.Shared.Enums.FontAlign.Left);
+
+                    if (Settings.HotSwap.Weights.TryGetValue(mod.Name, out (bool highlight, float weight) value) && value.highlight)
+                    {
+                        Color frameColor = value.weight >= 0 ? Color.Green : Color.Red;
+                        Graphics.DrawFrame(mod.MonsterAssociation.ModElement.GetClientRectCache, frameColor, 3);
+                    }
                 }
             }
 
