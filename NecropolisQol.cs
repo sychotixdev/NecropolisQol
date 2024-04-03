@@ -9,6 +9,7 @@ using ExileCore.PoEMemory;
 using ExileCore.PoEMemory.Components;
 using ExileCore.PoEMemory.Elements.Necropolis;
 using ExileCore.PoEMemory.FilesInMemory;
+using ExileCore.Shared.Enums;
 using ExileCore.Shared.Helpers;
 using GameOffsets.Components;
 using NecropolisQol.Models;
@@ -52,9 +53,9 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
 
             // Check if we found any new mods
             List<string> newMods = new List<string>();
-            foreach(var mod in mods)
+            foreach (var mod in mods)
             {
-                if(!Settings.AllMods.Contains(mod.Name))
+                if (!Settings.AllMods.Contains(mod.Name))
                     newMods.Add(mod.Name);
             }
 
@@ -65,7 +66,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
 
             // Loop through each mod so that we pre-calculate mod values.
             // No need to order this list as its reordered for each monster based on danger
-            foreach(var mod in mods)
+            foreach (var mod in mods)
             {
                 CalculateModValue(mod);
                 CalculateModDanger(mod);
@@ -73,8 +74,11 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
 
             if (Settings.MonsterValue.Value)
             {
-                foreach(var monster in monsters)
+                foreach (var monster in monsters)
                 {
+                    var textSize = Graphics.MeasureText(monster.CalculatedValue.ToString());
+                    var backgroundRect = new RectangleF(monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.TopLeft.X, monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.TopLeft.Y, textSize.X, textSize.Y);
+                    Graphics.DrawBox(backgroundRect, Color.Black);
                     Graphics.DrawText(((int)monster.CalculatedValue).ToString(), monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.TopLeft, Color.Green, 20, ExileCore.Shared.Enums.FontAlign.Left);
                 }
             }
@@ -83,6 +87,9 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
             {
                 foreach (var mod in mods)
                 {
+                    var textSize = Graphics.MeasureText(mod.CalculatedValue.ToString());
+                    var backgroundRect = new RectangleF(mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft.X, mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft.Y, textSize.X, textSize.Y);
+                    Graphics.DrawBox(backgroundRect, Color.Black);
                     Graphics.DrawText(((int)mod.CalculatedValue).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft, Color.Green, 20, ExileCore.Shared.Enums.FontAlign.Left);
                 }
             }
@@ -92,7 +99,14 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                 foreach (var mod in mods)
                 {
                     if (!mod.IsDevoted)
+                    {
+                        var textSize = Graphics.MeasureText(mod.CalculatedDanger.ToString());
+                        var textX = mod.MonsterAssociation.ModElement.GetClientRectCache.TopRight.X;
+                        var textY = mod.MonsterAssociation.ModElement.GetClientRectCache.TopRight.Y;
+                        var backgroundRect = new RectangleF(textX - textSize.X, textY, textSize.X, textSize.Y);
+                        Graphics.DrawBox(backgroundRect, Color.Black);
                         Graphics.DrawText(((int)mod.CalculatedDanger).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.TopRight, Color.Red, 20, ExileCore.Shared.Enums.FontAlign.Right);
+                    }
                 }
             }
 
@@ -161,7 +175,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         }
     }
 
-    private float CalculateFinalWeight(ModModel mod, MonsterModel monster, bool excludeModTier=false)
+    private float CalculateFinalWeight(ModModel mod, MonsterModel monster, bool excludeModTier = false)
     {
         return mod.CalculatedValue + monster.CalculatedValue - mod.CalculatedDanger;
     }
@@ -240,7 +254,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
 
         model.PackSizeLow = element.MinMonstersPerPack;
         model.PackSizeHigh = element.MaxMonstersPerPack;
-        
+
         model.Density = MonsterModel.MonsterDensityFromId(element.PackFrequency?.Id ?? null);
 
         // We have to do some funky stuff to get the mod tier modifier
@@ -367,7 +381,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         float modVal = 0;
 
         // Mod is made more valuable (or less valuable if negative) by tier
-        modVal +=  10 * model.Tier;
+        modVal += 10 * model.Tier;
 
         // If this is a devotion mod, add our base devition bonus
         if (model.IsDevoted)
