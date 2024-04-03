@@ -219,7 +219,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                         }
                     }
                 }
-                else if (monsterModel.ModTierModifier == 0)
+                else if (monsterModel.ModTierModifier == 0 && modModel.Tier > 1)
                 {
                     // we don't know of this one yet, lets throw it in the list if its on a normal monster
                     ListOfNormalTiers.Add(modModel.Name, modModel.Tier);
@@ -285,7 +285,16 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         model.Name = Regex.Replace(model.Name, @"(\r\n|\r|\n)", " ");
 
         // I don't think we can make much of a guess on the tier format
-        var tierText = element.ModElement.GetChildFromIndices(new int[] { 3, 0 })?.Text ?? string.Empty;
+        string tierText = string.Empty;
+        if (element.ModElement.ChildCount > 0)
+        {
+            var firstChild = element.ModElement.GetChildAtIndex(3);
+            if (firstChild != null && firstChild.ChildCount > 0)
+            {
+                tierText = firstChild.GetChildAtIndex(0)?.Text ?? string.Empty;
+            }
+        }
+
         int tier = 1;
         if (tierText.StartsWith("Noble-Haunted"))
             tier = 6;
