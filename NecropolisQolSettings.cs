@@ -16,9 +16,14 @@ public class NecropolisQolSettings : ISettings
 {
     [JsonIgnore]
     public static readonly string AllModsFileName = "allmods.txt";
+    [JsonIgnore]
+    public static readonly string ModMinTiersFileName = "modMinTiers.txt";
 
     [JsonIgnore]
     public List<string> AllMods { get; set; } = new List<string>();
+
+    [JsonIgnore]
+    public Dictionary<string,int> ModMinTiers { get; set; } = new Dictionary<string, int>();
 
     public ToggleNode Enable { get; set; } = new ToggleNode(false);
 
@@ -94,7 +99,33 @@ public class NecropolisQolSettings : ISettings
 
     #region Save / Load Section
 
-    
+
+    public void AddMinTier(string modId, int minTier)
+    {
+        ModMinTiers[modId] = minTier;
+        var fullPath = Path.Combine(NecropolisQol.Main.ConfigDirectory, ModMinTiersFileName);
+        File.AppendAllLines(fullPath, new List<string> { minTier.ToString() + "," + modId });
+    }
+
+    public void LoadMinTiers()
+    {
+        try
+        {
+            var fullPath = Path.Combine(NecropolisQol.Main.ConfigDirectory, ModMinTiersFileName);
+            var fileContents = new List<string>(File.ReadAllLines(fullPath));
+            foreach(var line in fileContents)
+            {
+                var modName = line.Substring(line.IndexOf(',') + 1);
+                var minTier = line.Substring(0, line.IndexOf(",") + 1);
+
+                ModMinTiers[modName] = int.Parse(minTier);
+            }
+        }
+        catch
+        {
+            // ignored
+        }
+    }
 
     public void AddMods(List<string> newMods)
     {

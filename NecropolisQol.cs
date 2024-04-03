@@ -8,6 +8,7 @@ using ExileCore;
 using ExileCore.PoEMemory;
 using ExileCore.PoEMemory.Components;
 using ExileCore.PoEMemory.Elements.Necropolis;
+using ExileCore.PoEMemory.FilesInMemory;
 using ExileCore.Shared.Helpers;
 using GameOffsets.Components;
 using NecropolisQol.Models;
@@ -24,6 +25,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
     {
         Main = this;
         Settings.LoadMods();
+        Settings.LoadMinTiers();
 
         return base.Initialise();
     }
@@ -32,6 +34,8 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
     {
         RenderModStuff();
     }
+
+    private Dictionary<String, int> ListOfNormalTiers = new Dictionary<string, int>();
 
     public void RenderModStuff()
     {
@@ -71,7 +75,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
             {
                 foreach(var monster in monsters)
                 {
-                    Graphics.DrawText(((int)monster.CalculatedValue).ToString(), monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.BottomLeft, Color.Green, ExileCore.Shared.Enums.FontAlign.Left);
+                    Graphics.DrawText(((int)monster.CalculatedValue).ToString(), monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.TopLeft, Color.Green, ExileCore.Shared.Enums.FontAlign.Left);
                 }
             }
 
@@ -79,7 +83,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
             {
                 foreach (var mod in mods)
                 {
-                    Graphics.DrawText(((int)mod.CalculatedValue).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.BottomLeft, Color.Green, ExileCore.Shared.Enums.FontAlign.Left);
+                    Graphics.DrawText(((int)mod.CalculatedValue).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft, Color.Green, ExileCore.Shared.Enums.FontAlign.Left);
                 }
             }
 
@@ -88,7 +92,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                 foreach (var mod in mods)
                 {
                     if (!mod.IsDevoted)
-                        Graphics.DrawText(((int)mod.CalculatedDanger).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.BottomRight, Color.Red, ExileCore.Shared.Enums.FontAlign.Right);
+                        Graphics.DrawText(((int)mod.CalculatedDanger).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.TopRight, Color.Red, ExileCore.Shared.Enums.FontAlign.Right);
                 }
             }
 
@@ -119,9 +123,17 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                         continue;
                     }
 
-                    // Next... to prevent ever having a pointless switch... lets look at the mod value already in this slot
                     existingModel = monsters.FirstOrDefault(x => x.Order == mod.Order);
-                    if (existingModel != null && (int)(CalculateFinalWeight(mod, existingModel)) == (int)(CalculateFinalWeight(mod, bestMonster)))
+                    // Next... to prevent ever having a pointless switch... lets look at the mod value already in this slot
+                    if (existingModel != null && mod.CalculatedValue - (CalculateFinalWeight(mod, existingModel)) == (int)(CalculateFinalWeight(mod, bestMonster)))
+                    {
+                        alreadyHandledMonsters.Add(existingModel.Order);
+                        continue;
+                    }
+
+                    var existingModelOnBestMonster = mods.FirstOrDefault(x => x.Order == bestMonster.Order);
+                    // If these mods are effectively identical... no need to switch.
+                    if (existingModel != null && (int)(mod.CalculatedValue - mod.CalculatedDanger) == (int)(existingModelOnBestMonster.CalculatedValue - existingModelOnBestMonster.CalculatedDanger))
                     {
                         alreadyHandledMonsters.Add(existingModel.Order);
                         continue;
@@ -141,6 +153,11 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                     Graphics.DrawLine(existingModel.MonsterAssociation.ModElement.GetClientRectCache.Center.ToVector2Num(), desiredModel.MonsterAssociation.ModElement.GetClientRectCache.Center.ToVector2Num(), 5.0f, Color.Green);
                 }
             }
+        }
+        else
+        {
+            // Cleanup since we no longer have the window visible
+            ListOfNormalTiers.Clear();
         }
     }
 
@@ -164,15 +181,49 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
             }
 
             ModModel modModel = ConvertElementToMod(associations.ElementAtOrDefault(i));
+            int minTier = 0;
             if (modModel != null)
             {
                 modModel.Order = i;
 
                 // Adjust our mod model if its already been adjusted by the monster
-                if (monsterModel != null && !modModel.IsDevoted)
+                var foundMinTier = Settings.ModMinTiers.TryGetValue(modModel.Name, out minTier);
+                if (monsterModel != null && !modModel.IsDevoted && (!foundMinTier || monsterModel.ModTierModifier > 0 || modModel.Tier > minTier))
                     modModel.Tier -= monsterModel.ModTierModifier;
 
                 mods.Add(modModel);
+            }
+
+            // Now we need to do some sanity checking on this association
+            // Do we know of this one already? Is it in our list of tiers?
+            if (minTier != 0)
+            {
+                if (ListOfNormalTiers.TryGetValue(modModel.Name, out int value))
+                {
+                    // If we're in the list of normal tiers and we now have a monster decreasing our mod
+                    // We were moved from a normal mod to a minus mod. Did it actually decrease?
+                    if (monsterModel.ModTierModifier < 0)
+                    {
+                        if (value < modModel.Tier)
+                        {
+                            // this is a special case where we are at the mod's min level. We need to save this off.
+                            Settings.AddMinTier(modModel.Name, value);
+
+                            // Might as well correct it while we're at it
+                            modModel.Tier--;
+                        }
+                        else
+                        {
+                            // Clean it up from the list
+                            ListOfNormalTiers.Remove(modModel.Name);
+                        }
+                    }
+                }
+                else if (monsterModel.ModTierModifier == 0)
+                {
+                    // we don't know of this one yet, lets throw it in the list if its on a normal monster
+                    ListOfNormalTiers.Add(modModel.Name, modModel.Tier);
+                }
             }
         }
     }
@@ -231,6 +282,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
 
         model.Name = element.ModElement.GetChildAtIndex(0)?.TextNoTags ?? "NoName";
         model.Name = Regex.Replace(model.Name, @"\d+", "#");
+        model.Name = Regex.Replace(model.Name, @"(\r\n|\r|\n)", " ");
 
         // I don't think we can make much of a guess on the tier format
         var tierText = element.ModElement.GetChildFromIndices(new int[] { 3, 0 })?.Text ?? string.Empty;
