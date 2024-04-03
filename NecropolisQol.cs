@@ -77,9 +77,23 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                 foreach (var monster in monsters)
                 {
                     var textSize = Graphics.MeasureText(((int)monster.CalculatedValue).ToString());
-                    var backgroundRect = new RectangleF(monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.TopLeft.X, monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.TopLeft.Y, textSize.X, textSize.Y);
+
+                    var backgroundRect = new RectangleF(
+                        monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.TopLeft.X,
+                        monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.TopLeft.Y,
+                        textSize.X,
+                        textSize.Y
+                    );
+
                     Graphics.DrawBox(backgroundRect, Color.Black);
-                    Graphics.DrawText(((int)monster.CalculatedValue).ToString(), monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.TopLeft.ToVector2Num(), Color.Green, 20, ExileCore.Shared.Enums.FontAlign.Left);
+
+                    Graphics.DrawText(
+                        ((int)monster.CalculatedValue).ToString(),
+                        monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.TopLeft.ToVector2Num(),
+                        Settings.Positive,
+                        20,
+                        FontAlign.Left
+                    );
                 }
             }
 
@@ -88,13 +102,27 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                 foreach (var mod in mods)
                 {
                     var textSize = Graphics.MeasureText(((int)mod.CalculatedValue).ToString());
-                    var backgroundRect = new RectangleF(mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft.X, mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft.Y, textSize.X, textSize.Y);
-                    Graphics.DrawBox(backgroundRect, Color.Black);
-                    Graphics.DrawText(((int)mod.CalculatedValue).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft.ToVector2Num(), Color.Green, 20, ExileCore.Shared.Enums.FontAlign.Left);
 
-                    if (Settings.HotSwap.Weights.TryGetValue(mod.Name, out (bool highlight, float weight) value) && value.highlight)
+                    var backgroundRect = new RectangleF(
+                        mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft.X,
+                        mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft.Y,
+                        textSize.X,
+                        textSize.Y
+                    );
+
+                    Graphics.DrawBox(backgroundRect, Color.Black);
+
+                    Graphics.DrawText(
+                        ((int)mod.CalculatedValue).ToString(),
+                        mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft.ToVector2Num(),
+                        Settings.Positive,
+                        20,
+                        FontAlign.Left
+                    );
+
+                    if (Settings.HotSwap.Weights.TryGetValue(mod.Name, out var value) && value.highlight)
                     {
-                        Color frameColor = value.weight >= 0 ? Color.Green : Color.Red;
+                        Color frameColor = value.weight >= 0 ? Settings.Positive : Settings.Negative;
                         Graphics.DrawFrame(mod.MonsterAssociation.ModElement.GetClientRectCache, frameColor, 3);
                     }
                 }
@@ -103,7 +131,6 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
             if (Settings.ModDanger.Value)
             {
                 foreach (var mod in mods)
-                {
                     if (!mod.IsDevoted)
                     {
                         var textSize = Graphics.MeasureText(((int)mod.CalculatedDanger).ToString());
@@ -111,9 +138,15 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                         var textY = mod.MonsterAssociation.ModElement.GetClientRectCache.TopRight.Y;
                         var backgroundRect = new RectangleF(textX - textSize.X, textY, textSize.X, textSize.Y);
                         Graphics.DrawBox(backgroundRect, Color.Black);
-                        Graphics.DrawText(((int)mod.CalculatedDanger).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.TopRight.ToVector2Num(), Color.Red, 20, ExileCore.Shared.Enums.FontAlign.Right);
+
+                        Graphics.DrawText(
+                            ((int)mod.CalculatedDanger).ToString(),
+                            mod.MonsterAssociation.ModElement.GetClientRectCache.TopRight.ToVector2Num(),
+                            Settings.Negative,
+                            20,
+                            FontAlign.Right
+                        );
                     }
-                }
             }
 
 
