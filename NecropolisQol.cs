@@ -241,7 +241,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         model.PackSizeLow = element.MinMonstersPerPack;
         model.PackSizeHigh = element.MaxMonstersPerPack;
         
-        model.Density = MonsterModel.MonsterDensityFromId(element.PackFrequency.Id);
+        model.Density = MonsterModel.MonsterDensityFromId(element.PackFrequency?.Id ?? null);
 
         // We have to do some funky stuff to get the mod tier modifier
         Element monsterModifiers = element.MonsterPortrait.GetChildAtIndex(1);

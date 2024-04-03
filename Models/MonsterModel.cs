@@ -43,7 +43,8 @@ namespace NecropolisQol.Models
                     return MonsterDensity.High;
             }
 
-            return MonsterDensity.None;
+            // Lets assume this monster has a normal pack density?
+            return MonsterDensity.Normal;
         }
 
     }
