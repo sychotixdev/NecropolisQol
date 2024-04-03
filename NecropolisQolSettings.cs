@@ -208,8 +208,10 @@ public class NecropolisQolSettings : ISettings
                     var usableSpace = ImGui.GetContentRegionAvail();
                     ImGui.SetNextItemWidth(usableSpace.X);
 
-                    if (!HotSwap.Weights.TryGetValue(filteredMods[i], out var tempWeight))
+                    if (!HotSwap.Weights.TryGetValue(filteredMods[i], out var tempWeight) && filteredMods[i] != "NoName")
+                    {
                         HotSwap.Weights.Add(filteredMods[i], (highlight: false, weight: 0.0f));
+                    }
 
                     DisplayWeightSlider(filteredMods[i], ref tempWeight.weight);
                     HotSwap.Weights[filteredMods[i]] = tempWeight;
