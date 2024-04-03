@@ -203,7 +203,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                     // TODO: Add configurable color and thickness
                     // TODO: Make an arrow and not just a line?
                     // TODO: Probably position better, maybe 25% through frame?
-                    Graphics.DrawLine(existingModel.MonsterAssociation.ModElement.GetClientRectCache.Center.ToVector2Num(), desiredModel.MonsterAssociation.ModElement.GetClientRectCache.Center.ToVector2Num(), 5.0f, Color.Green);
+                    Graphics.DrawLine(existingModel.MonsterAssociation.ModElement.GetClientRectCache.Center.ToVector2Num(), desiredModel.MonsterAssociation.ModElement.GetClientRectCache.Center.ToVector2Num(), 5.0f, Settings.Suggestion);
                 }
             }
         }
