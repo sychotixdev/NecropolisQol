@@ -36,7 +36,7 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         RenderModStuff();
     }
 
-    private Dictionary<String, int> ListOfNormalTiers = new Dictionary<string, int>();
+    private Dictionary<string, int> ListOfNormalTiers = [];
 
     public void RenderModStuff()
     {
@@ -76,10 +76,10 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
             {
                 foreach (var monster in monsters)
                 {
-                    var textSize = Graphics.MeasureText(monster.CalculatedValue.ToString());
+                    var textSize = Graphics.MeasureText(((int)monster.CalculatedValue).ToString());
                     var backgroundRect = new RectangleF(monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.TopLeft.X, monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.TopLeft.Y, textSize.X, textSize.Y);
                     Graphics.DrawBox(backgroundRect, Color.Black);
-                    Graphics.DrawText(((int)monster.CalculatedValue).ToString(), monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.TopLeft, Color.Green, 20, ExileCore.Shared.Enums.FontAlign.Left);
+                    Graphics.DrawText(((int)monster.CalculatedValue).ToString(), monster.MonsterAssociation.MonsterPortrait.GetClientRectCache.TopLeft.ToVector2Num(), Color.Green, 20, ExileCore.Shared.Enums.FontAlign.Left);
                 }
             }
 
@@ -87,10 +87,10 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
             {
                 foreach (var mod in mods)
                 {
-                    var textSize = Graphics.MeasureText(mod.CalculatedValue.ToString());
+                    var textSize = Graphics.MeasureText(((int)mod.CalculatedValue).ToString());
                     var backgroundRect = new RectangleF(mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft.X, mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft.Y, textSize.X, textSize.Y);
                     Graphics.DrawBox(backgroundRect, Color.Black);
-                    Graphics.DrawText(((int)mod.CalculatedValue).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft, Color.Green, 20, ExileCore.Shared.Enums.FontAlign.Left);
+                    Graphics.DrawText(((int)mod.CalculatedValue).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.TopLeft.ToVector2Num(), Color.Green, 20, ExileCore.Shared.Enums.FontAlign.Left);
                 }
             }
 
@@ -100,12 +100,12 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                 {
                     if (!mod.IsDevoted)
                     {
-                        var textSize = Graphics.MeasureText(mod.CalculatedDanger.ToString());
+                        var textSize = Graphics.MeasureText(((int)mod.CalculatedDanger).ToString());
                         var textX = mod.MonsterAssociation.ModElement.GetClientRectCache.TopRight.X;
                         var textY = mod.MonsterAssociation.ModElement.GetClientRectCache.TopRight.Y;
                         var backgroundRect = new RectangleF(textX - textSize.X, textY, textSize.X, textSize.Y);
                         Graphics.DrawBox(backgroundRect, Color.Black);
-                        Graphics.DrawText(((int)mod.CalculatedDanger).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.TopRight, Color.Red, 20, ExileCore.Shared.Enums.FontAlign.Right);
+                        Graphics.DrawText(((int)mod.CalculatedDanger).ToString(), mod.MonsterAssociation.ModElement.GetClientRectCache.TopRight.ToVector2Num(), Color.Red, 20, ExileCore.Shared.Enums.FontAlign.Right);
                     }
                 }
             }
@@ -388,8 +388,8 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
             modVal += Settings.DevotedBonusValue.Value;
 
         // Modify the tier based on the config
-        Settings.Weights.TryGetValue(model.Name ?? string.Empty, out float tierModifier);
-        modVal += 10 * tierModifier;
+        Settings.HotSwap.Weights.TryGetValue(model.Name ?? string.Empty, out var tierModifier);
+        modVal += 10 * tierModifier.weight;
 
         // Before we return... lets throw it on the model for future logic
         model.CalculatedValue = modVal;

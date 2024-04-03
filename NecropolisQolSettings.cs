@@ -3,11 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using ExileCore.PoEMemory.Components;
+using ExileCore;
 using ExileCore.Shared.Interfaces;
 using ExileCore.Shared.Nodes;
 using ImGuiNET;
-using NecropolisQol.Models;
 using Newtonsoft.Json;
 
 namespace NecropolisQoL;
@@ -15,15 +14,25 @@ namespace NecropolisQoL;
 public class NecropolisQolSettings : ISettings
 {
     [JsonIgnore]
-    public static readonly string AllModsFileName = "allmods.txt";
+    public static readonly string AllModsFileName = "AllModifiers.json";
+
     [JsonIgnore]
-    public static readonly string ModMinTiersFileName = "modMinTiers.txt";
+    public static readonly string ModMinTiersFileName = "ModifierMinimumTiers.json";
+
+    [JsonIgnore]
+    private const string OverwritePopup = "Overwrite Confirmation";
 
     [JsonIgnore]
     public List<string> AllMods { get; set; } = new List<string>();
 
     [JsonIgnore]
     public Dictionary<string,int> ModMinTiers { get; set; } = new Dictionary<string, int>();
+
+    [JsonIgnore]
+    public CustomNode HotSwappableConfiguration { get; }
+
+    [JsonIgnore]
+    public CustomNode WeightsList { get; set; }
 
     public ToggleNode Enable { get; set; } = new ToggleNode(false);
 
@@ -38,27 +47,137 @@ public class NecropolisQolSettings : ISettings
 
     public ToggleNode GiveSuggestions { get; set; } = new ToggleNode(true);
 
-    public Dictionary<string, float> Weights { get; set; } = new Dictionary<string, float>();
+    public string ModMobWeightingLastSaved { get; set; } = "";
+    public string ModMobWeightingLastSelected { get; set; } = "";
 
-    [JsonIgnore]
-    public CustomNode WeightsList { get; set; } 
+    public Swappable HotSwap { get; set; } = new();
+
+    public class Swappable
+    {
+        public Dictionary<string, (bool highlight, float weight)> Weights { get; set; } = [];
+    }
 
     public NecropolisQolSettings()
     {
+        List<string> files;
+
+        HotSwappableConfiguration = new CustomNode
+        {
+            DrawDelegate = () =>
+            {
+                var _fileSaveName = ModMobWeightingLastSaved;
+                var _selectedFileName = ModMobWeightingLastSelected;
+
+                if (!ImGui.CollapsingHeader(
+                        $"Load / Save Hot Swappable Configurations##{NecropolisQol.Main.Name}Load / Save",
+                        ImGuiTreeNodeFlags.DefaultOpen
+                    ))
+                {
+                    return;
+                }
+
+                ImGui.Indent();
+                ImGui.InputTextWithHint("##SaveAs", "File Path...", ref _fileSaveName, 100);
+                ImGui.SameLine();
+
+                if (ImGui.Button("Save To File"))
+                {
+                    files = GetFiles();
+
+                    _fileSaveName = Path.GetInvalidFileNameChars().Aggregate(
+                        _fileSaveName,
+                        (current, c) => current.Replace(c, '_')
+                    );
+
+                    if (_fileSaveName != string.Empty)
+                    {
+                        if (files.Contains(_fileSaveName))
+                        {
+                            ImGui.OpenPopup(OverwritePopup);
+                        }
+                        else
+                        {
+                            SaveHotSwapProfile(HotSwap, _fileSaveName);
+                        }
+                    }
+                }
+
+                ImGui.Separator();
+
+                if (ImGui.BeginCombo("Load File##LoadHotSwapProfile", _selectedFileName))
+                {
+                    files = GetFiles();
+
+                    foreach (var fileName in files)
+                    {
+                        var isSelected = _selectedFileName == fileName;
+
+                        if (ImGui.Selectable(fileName, isSelected))
+                        {
+                            _selectedFileName = fileName;
+                            _fileSaveName = fileName;
+                            LoadHotSwapProfile(fileName);
+                        }
+
+                        if (isSelected)
+                        {
+                            ImGui.SetItemDefaultFocus();
+                        }
+                    }
+
+                    ImGui.EndCombo();
+                }
+
+                ImGui.Separator();
+
+                if (ImGui.Button("Open Template Folder"))
+                {
+                    var configDir = NecropolisQol.Main.ConfigDirectory;
+                    var directoryToOpen = Directory.Exists(configDir);
+
+                    if (!directoryToOpen)
+                    {
+                        // Log error when the config directory doesn't exist
+                    }
+
+                    if (configDir != null)
+                    {
+                        Process.Start("explorer.exe", configDir);
+                    }
+                }
+
+                if (ShowButtonPopup(OverwritePopup, ["Are you sure?", "STOP"], out var saveSelectedIndex) &&
+                    saveSelectedIndex == 0)
+                {
+                    SaveHotSwapProfile(HotSwap, _fileSaveName);
+                }
+
+                ModMobWeightingLastSaved = _fileSaveName;
+                ModMobWeightingLastSelected = _selectedFileName;
+                ImGui.Unindent();
+            }
+        };
+
         string modFilter = "", mobFilter = "";
 
         WeightsList = new CustomNode
         {
             DrawDelegate = () =>
             {
-                ImGui.Indent();
 
-                if (!ImGui.TreeNode("Modifier Weighting"))
+                if (!ImGui.CollapsingHeader(
+                        $"Modifier Weighting",
+                        ImGuiTreeNodeFlags.DefaultOpen
+                    ))
                 {
                     return;
                 }
+                ImGui.Indent();
 
-                ImGui.SameLine();
+                if (ImGui.Button("Reset All"))
+                {
+                    HotSwap.Weights = [];
+                }
                 ImGui.InputTextWithHint("Modifier Filter##ModFilter", "Filter Modifiers here", ref modFilter, 100);
 
                 var filteredMods = string.IsNullOrEmpty(modFilter) ? AllMods : AllMods
@@ -66,35 +185,57 @@ public class NecropolisQolSettings : ISettings
                                         .ToList();
 
 
+
+                if (!ImGui.BeginTable("WeightingTable", 3, ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.Borders))
+                {
+                    return;
+                }
+
+                ImGui.TableSetupColumn("Weighting", ImGuiTableColumnFlags.WidthFixed, 350);
+                ImGui.TableSetupColumn("");
+                ImGui.TableSetupColumn($"Modifier ({filteredMods.Count})", ImGuiTableColumnFlags.WidthStretch);
+                ImGui.TableHeadersRow();
+
+                // Weighting column
+                ImGui.TableNextColumn();
+
                 for (var i = 0; i < filteredMods.Count; i++)
                 {
-                    if (!Weights.TryGetValue(filteredMods[i], out float tempWeight))
-                    {
-                        Weights.Add(filteredMods[i], 0.0f);
-                    }
-                    DisplayWeightSlider(filteredMods[i], ref tempWeight);
+                    var usableSpace = ImGui.GetContentRegionAvail();
+                    ImGui.SetNextItemWidth(usableSpace.X);
 
-                    Weights[filteredMods[i]] = tempWeight;
+                    if (!HotSwap.Weights.TryGetValue(filteredMods[i], out var tempWeight))
+                        HotSwap.Weights.Add(filteredMods[i], (highlight: false, weight: 0.0f));
 
-                    // Add a separator for all but the last item
+                    DisplayWeightSlider(filteredMods[i], ref tempWeight.weight);
+                    HotSwap.Weights[filteredMods[i]] = tempWeight;
+                    ImGui.TableNextColumn();
+                    var highlighted = "Highlighted";
+                    var normal = "Normal";
+                    var label = tempWeight.highlight ? highlighted : normal.PadRight(highlighted.Length);
+
+                    if (ImGui.Button($"{label}##Highlight_{filteredMods[i]}"))
+                        tempWeight.highlight = !tempWeight.highlight;
+
+                    HotSwap.Weights[filteredMods[i]] = tempWeight;
+                    ImGui.TableNextColumn();
+                    ImGui.TextUnformatted(filteredMods[i]);
                     if (i < filteredMods.Count - 1)
                     {
-                        ImGui.Separator();
+                        ImGui.TableNextColumn();
                     }
                 }
 
-                ImGui.TreePop();
+                ImGui.EndTable();
                 ImGui.Unindent();
             }
         };
+
     }
 
-    private static void DisplayWeightSlider(string modId, ref float weight)
+private static void DisplayWeightSlider(string modId, ref float weight)
     {
-        ImGui.SliderFloat($"##{modId}", ref weight, -10.0f, 10.0f);
-
-        ImGui.SameLine();
-        ImGui.Text(modId);
+        ImGui.SliderFloat($"##Slider_{modId}", ref weight, -10.0f, 10.0f);
     }
 
     #region Save / Load Section
@@ -104,7 +245,22 @@ public class NecropolisQolSettings : ISettings
     {
         ModMinTiers[modId] = minTier;
         var fullPath = Path.Combine(NecropolisQol.Main.ConfigDirectory, ModMinTiersFileName);
-        File.AppendAllLines(fullPath, new List<string> { minTier.ToString() + "," + modId });
+        var jsonString = JsonConvert.SerializeObject(ModMinTiers, Formatting.Indented);
+        File.WriteAllText(fullPath, jsonString);
+    }
+    public void AddMods(List<string> newMods)
+    {
+        try
+        {
+            AllMods.AddRange(newMods);
+            var fullPath = Path.Combine(NecropolisQol.Main.ConfigDirectory, AllModsFileName);
+            var jsonString = JsonConvert.SerializeObject(AllMods, Formatting.Indented);
+            File.WriteAllText(fullPath, jsonString);
+        }
+        catch
+        {
+            // ignored
+        }
     }
 
     public void LoadMinTiers()
@@ -112,14 +268,8 @@ public class NecropolisQolSettings : ISettings
         try
         {
             var fullPath = Path.Combine(NecropolisQol.Main.ConfigDirectory, ModMinTiersFileName);
-            var fileContents = new List<string>(File.ReadAllLines(fullPath));
-            foreach(var line in fileContents)
-            {
-                var modName = line.Substring(line.IndexOf(',') + 1);
-                var minTier = line.Substring(0, line.IndexOf(','));
-
-                ModMinTiers[modName] = int.Parse(minTier);
-            }
+            var fileContent = File.ReadAllText(fullPath);
+            ModMinTiers = JsonConvert.DeserializeObject<Dictionary<string, int>>(fileContent);
         }
         catch
         {
@@ -127,18 +277,35 @@ public class NecropolisQolSettings : ISettings
         }
     }
 
-    public void AddMods(List<string> newMods)
+    public static bool ShowButtonPopup(string popupId, List<string> items, out int selectedIndex)
     {
-        try
+        selectedIndex = -1;
+        var isItemClicked = false;
+        var showPopup = true;
+
+        if (!ImGui.BeginPopupModal(
+                popupId,
+                ref showPopup,
+                ImGuiWindowFlags.NoResize | ImGuiWindowFlags.AlwaysAutoResize
+            ))
         {
-            AllMods.AddRange(newMods);
-            var fullPath = Path.Combine(NecropolisQol.Main.ConfigDirectory, AllModsFileName);
-            File.AppendAllLines(fullPath, newMods);
+            return false;
         }
-        catch
+
+        for (var i = 0; i < items.Count; i++)
         {
-            // ignored
+            if (ImGui.Button(items[i]))
+            {
+                selectedIndex = i;
+                isItemClicked = true;
+                ImGui.CloseCurrentPopup();
+            }
+
+            ImGui.SameLine();
         }
+
+        ImGui.EndPopup();
+        return isItemClicked;
     }
 
     public void LoadMods()
@@ -146,13 +313,66 @@ public class NecropolisQolSettings : ISettings
         try
         {
             var fullPath = Path.Combine(NecropolisQol.Main.ConfigDirectory, AllModsFileName);
-            AllMods = new List<string>(File.ReadAllLines(fullPath));
+            var fileContent = File.ReadAllText(fullPath);
+            AllMods = JsonConvert.DeserializeObject<List<string>>(fileContent);
         }
         catch
         {
             // ignored
         }
     }
+
+    public void SaveHotSwapProfile(Swappable input, string fileName)
+    {
+        try
+        {
+            var folder = Path.Combine(NecropolisQol.Main.ConfigDirectory, "Profiles");
+            var fullPath = Path.Combine(folder, $"{fileName}.json");
+            var jsonString = JsonConvert.SerializeObject(input, Formatting.Indented);
+
+            if (!Directory.Exists(folder))
+            {
+                Directory.CreateDirectory(folder);
+            }
+            File.WriteAllText(fullPath, jsonString);
+        }
+        catch
+        {
+            // ignored
+        }
+    }
+
+    public void LoadHotSwapProfile(string fileName)
+    {
+        try
+        {
+            var fullPath = Path.Combine(NecropolisQol.Main.ConfigDirectory, "Profiles", $"{fileName}.json");
+            var fileContent = File.ReadAllText(fullPath);
+            HotSwap = JsonConvert.DeserializeObject<Swappable>(fileContent);
+        }
+        catch
+        {
+            // ignored
+        }
+    }
+
+    public List<string> GetFiles()
+    {
+        var fileList = new List<string>();
+
+        try
+        {
+            var dir = new DirectoryInfo(Path.Combine(NecropolisQol.Main.ConfigDirectory, "Profiles"));
+            fileList = dir.GetFiles().Select(file => Path.GetFileNameWithoutExtension(file.Name)).ToList();
+        }
+        catch
+        {
+            // ignored
+        }
+
+        return fileList;
+    }
+
 
     #endregion
 }
