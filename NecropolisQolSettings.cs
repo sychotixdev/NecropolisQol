@@ -41,7 +41,6 @@ public class NecropolisQolSettings : ISettings
     public ToggleNode ModDanger { get; set; } = new ToggleNode(true);
 
     public ToggleNode GiveSuggestions { get; set; } = new ToggleNode(true);
-    public ColorNode Suggestion { get; set; } = new ColorNode(Color.Green);
     public ColorNode Positive { get; set; } = new ColorNode(Color.Green);
     public ColorNode Negative { get; set; } = new ColorNode(Color.Red);
 
