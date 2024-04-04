@@ -203,7 +203,9 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                     // TODO: Add configurable color and thickness
                     // TODO: Make an arrow and not just a line?
                     // TODO: Probably position better, maybe 25% through frame?
-                    Graphics.DrawLine(existingModel.MonsterAssociation.ModElement.GetClientRectCache.Center.ToVector2Num(), desiredModel.MonsterAssociation.ModElement.GetClientRectCache.Center.ToVector2Num(), 5.0f, Settings.Suggestion);
+                    var color = Settings.SuggestionArrowColor; 
+                    var thickness = Settings.SuggestionArrowThickness;
+                    DrawArrow(existingModel.MonsterAssociation.ModElement.GetClientRectCache.Center.ToVector2Num(), desiredModel.MonsterAssociation.ModElement.GetClientRectCache.Center.ToVector2Num(), color, thickness);
                 }
             }
         }
@@ -214,6 +216,25 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         }
     }
 
+    private void DrawArrow(Vector2 start, Vector2 end, Color color, float thickness)
+    {
+        float arrowSize = Settings.SuggestionArrowSize;
+
+        // Draw the base arrow line
+        Graphics.DrawLine(start, end, thickness, color);
+
+        
+        // Calculate the arrow points
+        Vector2 direction = end - start;
+        direction = Vector2.Normalize(direction);
+
+        Vector2 perpendicular = new Vector2(-direction.Y, direction.X);
+        Vector2 arrowPoint1 = end - direction * arrowSize + perpendicular * arrowSize;
+        Vector2 arrowPoint2 = end - direction * arrowSize - perpendicular * arrowSize;
+        // Draw the arrow
+        Graphics.DrawLine(end, arrowPoint1, thickness, color);
+        Graphics.DrawLine(end, arrowPoint2, thickness, color);
+    }
     private float CalculateFinalWeight(ModModel mod, MonsterModel monster, bool excludeModTier = false)
     {
         return mod.CalculatedValue + monster.CalculatedValue - mod.CalculatedDanger;

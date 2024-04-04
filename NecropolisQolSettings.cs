@@ -8,7 +8,7 @@ using ExileCore.Shared.Nodes;
 using ImGuiNET;
 using Newtonsoft.Json;
 using SharpDX;
-using System.Collections.Immutable;
+using ExileCore.Shared.Attributes;
 
 namespace NecropolisQoL;
 
@@ -27,7 +27,7 @@ public class NecropolisQolSettings : ISettings
     public List<string> AllMods { get; set; } = new List<string>();
 
     [JsonIgnore]
-    public Dictionary<string,int> ModMinTiers { get; set; } = new Dictionary<string, int>();
+    public Dictionary<string, int> ModMinTiers { get; set; } = new Dictionary<string, int>();
 
     public ToggleNode Enable { get; set; } = new ToggleNode(false);
 
@@ -44,6 +44,16 @@ public class NecropolisQolSettings : ISettings
     public ColorNode Suggestion { get; set; } = new ColorNode(Color.Green);
     public ColorNode Positive { get; set; } = new ColorNode(Color.Green);
     public ColorNode Negative { get; set; } = new ColorNode(Color.Red);
+
+    [Menu("Suggestion Arrow Settings", 100, CollapsedByDefault = true)]
+    [JsonIgnore]
+    public EmptyNode SuggestionArrowSettings { get; set; }
+    [Menu(null, parentIndex = 100)]
+    public ColorNode SuggestionArrowColor { get; set; } = new ColorNode(Color.Green);
+    [Menu(null, parentIndex = 100)]
+    public RangeNode<float> SuggestionArrowThickness { get; set; } = new RangeNode<float>(5f, 1, 10);
+    [Menu(null, parentIndex = 100)]
+    public RangeNode<float> SuggestionArrowSize { get; set; } = new RangeNode<float>(10f, 10, 20);
 
     public string ModMobWeightingLastSaved { get; set; } = "";
     public string ModMobWeightingLastSelected { get; set; } = "";
@@ -242,7 +252,7 @@ public class NecropolisQolSettings : ISettings
 
     }
 
-private static void DisplayWeightSlider(string modId, ref float weight)
+    private static void DisplayWeightSlider(string modId, ref float weight)
     {
         ImGui.SliderFloat($"##Slider_{modId}", ref weight, -10.0f, 10.0f);
     }
