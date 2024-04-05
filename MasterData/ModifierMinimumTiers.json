@@ -1,0 +1,22 @@
+{
+  "#% additional Physical Damage Reduction": 2,
+  "#% chance to Freeze All Damage can Freeze": 3,
+  "#% chance to gain a Frenzy Charge on Hit": 3,
+  "#% chance to gain a Power Charge on Hit": 3,
+  "#% chance to gain an Endurance Charge on Hit": 3,
+  "#% chance to Ignite All Damage can Ignite": 3,
+  "#% faster start of Energy Shield Recharge Gain #% of Maximum Life as Extra Maximum Energy Shield": 3,
+  "#% increased Attack and Cast Speed granted to Pack members on death": 5,
+  "#% increased Damage": 3,
+  "#% increased maximum Life": 2,
+  "+# to Pack Monster Level": 4,
+  "+#% chance to Evade Attack Hits": 2,
+  "+#% chance to Suppress Spell Damage": 2,
+  "+#% chance to Suppress Spell Damage": 3,
+  "Gain #% of Non-Chaos Damage as extra Chaos Damage": 5,
+  "Monsters do not grant Flask Charges when Slain": 3,
+  "Pack spawns a Meteor on Death": 6,
+  "Strongest Monster in Pack gets: #% increased Damage": 5,
+  "Strongest Monster in Pack gets: Adrenaline": 3,
+  "Unaffected by Curses": 4
+}
