@@ -226,18 +226,28 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
         // Draw the base arrow line
         Graphics.DrawLine(start, end, thickness, color);
 
-        
-        // Calculate the arrow points
-        Vector2 direction = end - start;
-        direction = Vector2.Normalize(direction);
+        // Calculate the arrow points for the end
+        var directionToEnd = Vector2.Normalize(end - start);
+        var perpendicularToEnd = new Vector2(-directionToEnd.Y, directionToEnd.X);
+        var endArrowPoint1 = end - directionToEnd * arrowSize + perpendicularToEnd * arrowSize;
+        var endArrowPoint2 = end - directionToEnd * arrowSize - perpendicularToEnd * arrowSize;
 
-        Vector2 perpendicular = new Vector2(-direction.Y, direction.X);
-        Vector2 arrowPoint1 = end - direction * arrowSize + perpendicular * arrowSize;
-        Vector2 arrowPoint2 = end - direction * arrowSize - perpendicular * arrowSize;
-        // Draw the arrow
-        Graphics.DrawLine(end, arrowPoint1, thickness, color);
-        Graphics.DrawLine(end, arrowPoint2, thickness, color);
+        // Draw the arrow at the end
+        Graphics.DrawLine(end, endArrowPoint1, thickness, color);
+        Graphics.DrawLine(end, endArrowPoint2, thickness, color);
+
+        // Calculate the arrow points for the start
+        var directionToStart = Vector2.Normalize(start - end); // Reverse direction for the start
+        var perpendicularToStart = new Vector2(-directionToStart.Y, directionToStart.X);
+        var startArrowPoint1 = start - directionToStart * arrowSize + perpendicularToStart * arrowSize;
+        var startArrowPoint2 = start - directionToStart * arrowSize - perpendicularToStart * arrowSize;
+
+        // Draw the arrow at the start
+        Graphics.DrawLine(start, startArrowPoint1, thickness, color);
+        Graphics.DrawLine(start, startArrowPoint2, thickness, color);
     }
+
+
     private float CalculateFinalWeight(ModModel mod, MonsterModel monster, bool excludeModTier = false)
     {
         return mod.CalculatedValue + monster.CalculatedValue - mod.CalculatedDanger;
