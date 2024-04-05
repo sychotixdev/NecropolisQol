@@ -40,17 +40,35 @@ public class NecropolisQolSettings : ISettings
     public ToggleNode ModValue { get; set; } = new ToggleNode(true);
     public ToggleNode ModDanger { get; set; } = new ToggleNode(true);
 
+    [Menu("Positive / Negative Settings", 101, CollapsedByDefault = true)]
+    [JsonIgnore]
+    public EmptyNode PositiveNegativeSettings { get; set; }
+
+    [Menu(null, parentIndex = 101)]
     public ToggleNode GiveSuggestions { get; set; } = new ToggleNode(true);
+
+    [Menu(null, parentIndex = 101)]
+    public RangeNode<int> HighlightedThickness { get; set; } = new RangeNode<int>(3, 1, 20);
+
+    [Menu(null, parentIndex = 101)]
+    public RangeNode<int> HighlightedTransparency { get; set; } = new RangeNode<int>(200, 1, 255);
+
+    [Menu(null, parentIndex = 101)]
     public ColorNode Positive { get; set; } = new ColorNode(Color.Green);
+
+    [Menu(null, parentIndex = 101)]
     public ColorNode Negative { get; set; } = new ColorNode(Color.Red);
 
     [Menu("Suggestion Arrow Settings", 100, CollapsedByDefault = true)]
     [JsonIgnore]
     public EmptyNode SuggestionArrowSettings { get; set; }
+
     [Menu(null, parentIndex = 100)]
     public ColorNode SuggestionArrowColor { get; set; } = new ColorNode(Color.Green);
+
     [Menu(null, parentIndex = 100)]
     public RangeNode<float> SuggestionArrowThickness { get; set; } = new RangeNode<float>(5f, 1, 10);
+
     [Menu(null, parentIndex = 100)]
     public RangeNode<float> SuggestionArrowSize { get; set; } = new RangeNode<float>(10f, 10, 20);
 

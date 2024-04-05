@@ -110,6 +110,15 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                         textSize.Y
                     );
 
+                    if (Settings.HotSwap.Weights.TryGetValue(mod.Name, out var value) && value.highlight)
+                    {
+                        Color frameColor = value.weight >= 0 ? Settings.Positive : Settings.Negative;
+                        var modElementGetClientRectCache = mod.MonsterAssociation.ModElement.GetClientRectCache;
+                        modElementGetClientRectCache.Inflate(-Settings.HighlightedThickness/2, -Settings.HighlightedThickness/2);
+
+                        Graphics.DrawFrame(modElementGetClientRectCache, frameColor with {A = (byte)Settings.HighlightedTransparency}, Settings.HighlightedThickness);
+                    }
+
                     Graphics.DrawBox(backgroundRect, Color.Black);
 
                     Graphics.DrawText(
@@ -119,12 +128,6 @@ public class NecropolisQol : BaseSettingsPlugin<NecropolisQolSettings>
                         20,
                         FontAlign.Left
                     );
-
-                    if (Settings.HotSwap.Weights.TryGetValue(mod.Name, out var value) && value.highlight)
-                    {
-                        Color frameColor = value.weight >= 0 ? Settings.Positive : Settings.Negative;
-                        Graphics.DrawFrame(mod.MonsterAssociation.ModElement.GetClientRectCache, frameColor, 3);
-                    }
                 }
             }
 
