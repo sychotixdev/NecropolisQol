@@ -35,11 +35,11 @@ namespace NecropolisQol.Models
             {
                 str = str.ToLower();
 
-                if ("low".Equals(str, StringComparison.OrdinalIgnoreCase))
+                if ("uncommon".Equals(str, StringComparison.OrdinalIgnoreCase))
                     return MonsterDensity.Low;
-                if ("normal".Equals(str, StringComparison.OrdinalIgnoreCase))
+                if ("common".Equals(str, StringComparison.OrdinalIgnoreCase))
                     return MonsterDensity.Normal;
-                if ("high".Equals(str, StringComparison.OrdinalIgnoreCase))
+                if ("verycommon".Equals(str, StringComparison.OrdinalIgnoreCase))
                     return MonsterDensity.High;
             }
 
